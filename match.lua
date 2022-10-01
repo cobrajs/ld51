@@ -44,9 +44,9 @@ function MatchDraw(self)
   love.graphics.rectangle('line', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT, MATCH_STICK_WIDTH, MATCH_STICK_HEIGHT)
 
   love.graphics.setColor(Global.Colors.MatchHeadFill)
-  love.graphics.circle('fill', 0, -MATCH_STICK_HEIGHT, MATCH_HEAD_RADIUS)
+  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
   love.graphics.setColor(outline)
-  love.graphics.circle('line', 0, -MATCH_STICK_HEIGHT, MATCH_HEAD_RADIUS)
+  love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
 
   love.graphics.setColor(Global.Colors.Outline)
   love.graphics.circle('fill', 0, 0, 4)
@@ -54,11 +54,31 @@ function MatchDraw(self)
   if self.paired then
   end
 
+  love.graphics.setColor(Global.Colors.White)
+
   if self.chatting and self.chatting.near then
-    love.graphics.setColor(Global.Colors.White)
-    love.graphics.circle('fill', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT - 20, 12)
-    love.graphics.setColor(Global.Colors.Outline)
-    love.graphics.circle('line', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT - 20, 12)
+    local x = -Global.Prerendered.LikeBubble[1]:getWidth() / 2
+    local y = -MATCH_HEIGHT - 40
+    love.graphics.draw(Global.Prerendered.LikeBubble[1], x, y)
+    if self.chatting.like then
+      renderLike(self.chatting.like, x, y + 2)
+    elseif self.chatting.dislike then
+      renderLike(self.chatting.dislike, x, y + 2)
+    end
+  end
+
+  -- Showing Tastes
+  if self.taste.show or true and not (self.chatting and self.chatting.near) then
+    local tastesCount = #self.taste.likes + (self.taste.dislikes and #self.taste.dislikes or 0)
+    local tastesWidth = tastesCount * Global.Sizes.Like
+    local tasteX = -tastesWidth / 2
+    local tasteY = -MATCH_HEIGHT - 40
+    love.graphics.draw(Global.Prerendered.LikeThought[tastesCount], -Global.Prerendered.LikeThought[tastesCount]:getWidth() / 2, tasteY)
+
+    for i, like in ipairs(self.taste.likes) do
+      renderLike(like, tasteX, tasteY + 2)
+      tasteX = tasteX + Global.Sizes.Like
+    end
   end
 
   love.graphics.pop()
@@ -73,9 +93,18 @@ function MatchDraw(self)
   if self.paired and self.paired.near then
     local midX = self.x + (self.paired.match.x - self.x) / 2
     local midY = self.y + (self.paired.match.y - self.y) / 2 - MATCH_STICK_HEIGHT / 2
+    local fillHeight = math.floor((self.paired.loveLevel.burnLevel / 10) * 40)
 
+    love.graphics.setScissor(midX - 20, midY - 20, 40, 40 - fillHeight)
+    love.graphics.setColor(Global.Colors.White)
+    love.graphics.circle('fill', midX, midY, 20)
+    love.graphics.setScissor()
+
+    love.graphics.setScissor(midX - 20, midY - 20 + 40 - fillHeight, 40, fillHeight)
     love.graphics.setColor(Global.Colors.HeartFill)
     love.graphics.circle('fill', midX, midY, 20)
+    love.graphics.setScissor()
+
     love.graphics.setColor(Global.Colors.Outline)
     love.graphics.circle('line', midX, midY, 20)
   end
@@ -103,6 +132,8 @@ function MatchUpdate(self, dt)
       self.chatting.near = true
       self.chatting.match.near = true
     end
+  elseif self.state.lit then
+
   elseif not self.paired and not self.chatting then
     local choice = math.random()
     if choice > 0.95 then
@@ -127,7 +158,7 @@ function MatchUpdate(self, dt)
         x = unitX,
         y = unitY
       }
-    elseif choice > 0.9 and choice < 0.94 then
+    elseif choice > 0.9 and choice < 0.94 and not self.state.lit and false then
       local randomMatch = PickNearbyMatch(self)
       if randomMatch then
         self.chatting = {
@@ -139,7 +170,21 @@ function MatchUpdate(self, dt)
       end
     end
   end
+
+  if self.paired and self.paired.near then
+    self.paired.loveLevel.burnLevel = self.paired.loveLevel.burnLevel - dt
+
+    if self.paired.loveLevel.burnLevel <= 0 then
+      local otherMatch = self.paired.match
+      self.paired = nil
+      self.state.lit = true
+      otherMatch.paired = nil
+      otherMatch.state.lit = true
+    end
+  end
+
 end
+
 
 function GoToward(self, otherMatch, dt)
   local diffX = otherMatch.x - self.x
@@ -156,7 +201,13 @@ function GoToward(self, otherMatch, dt)
   return true
 end
 
+
 function MatchPair(self, match)
+  -- We're already matched haha
+  if self.paired then
+    return
+  end
+
   local matchPercent = math.random()
   if matchPercent > 0.75 then
     Global.Sounds.match100:play()
@@ -173,8 +224,7 @@ function MatchPair(self, match)
 
   local loveLevel = {
     level = matchPercent,
-    burnLevel = 100,
-    burnRate = 5 / matchPercent
+    burnLevel = 10 * matchPercent
   }
 
   self.paired = {
@@ -188,10 +238,11 @@ function MatchPair(self, match)
   }
 end
 
-function PickNearbyMatch(self)
+
+function PickNearbyMatch(self, allowPaired, allowChatting)
   local choices = {}
   for i, match in ipairs(Global.Matches) do
-    if match ~= self and not match.paired and not match.chatting then
+    if match ~= self and (allowPaired or not match.paired) and (allowChatting or not match.chatting) then
       table.insert(choices, match)
     end
   end
@@ -212,9 +263,15 @@ function AddRandomMatch()
   local level = Global.Levels[Global.Level]
   local likeCount = math.floor(math.random() * (level.MaxLikes - level.MinLikes + 1)) + level.MinLikes
   match.taste.likes = RandomChoices(level.Likes, likeCount)
+  print("Random Likes: " .. #match.taste.likes )
+  for i, like in ipairs(match.taste.likes) do
+    print("  - " .. like)
+  end
   
-  local dislikeCount = math.floor(math.random() * (level.MaxDislikes - level.MinDislikes + 1)) + level.MinDislikes
-  match.taste.dislikes = RandomChoices(level.Dislikes, dislikeCount)
+  if level.Dislikes then
+    local dislikeCount = math.floor(math.random() * (level.MaxDislikes - level.MinDislikes + 1)) + level.MinDislikes
+    match.taste.dislikes = RandomChoices(level.Dislikes, dislikeCount)
+  end
 
   table.insert(Global.Matches, match)
 end

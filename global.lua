@@ -17,19 +17,27 @@ local Global = {
   
   -- Assets
   Sounds = {
-    match100 = love.audio.newSource('assets/audio/100_match.ogg', 'static'),
-    match75 = love.audio.newSource('assets/audio/75_match.ogg', 'static'),
-    match50 = love.audio.newSource('assets/audio/50_match.ogg', 'static'),
-    match25 = love.audio.newSource('assets/audio/25_match.ogg', 'static')
+    match100 = love.audio.newSource('assets/sfx/100_match.ogg', 'static'),
+    match75 = love.audio.newSource('assets/sfx/75_match.ogg', 'static'),
+    match50 = love.audio.newSource('assets/sfx/50_match.ogg', 'static'),
+    match25 = love.audio.newSource('assets/sfx/25_match.ogg', 'static')
   },
   Images = {
+  },
+  Prerendered = {
+    LikeBubble = {
+    },
+    LikeThought = {
+    }
   },
 
   -- Game Entities
   Matches = {},
 
   -- Game State Details
+  Scene = 'game',
   Level = 1,
+  Countdown = 0,
   MouseHover = {
     Time = 0,
     Match = nil
@@ -45,7 +53,28 @@ local Global = {
       MaxDislikes = 0,
       MinDislikes = 0
     },
+  },
+
+  Sizes = {
+    Like = 26,
+    LikeRadius = 13,
+    Match = {
+      Width = 20,
+      Height = 80,
+      Stick = {
+        Width = 16,
+        Height = 70
+      },
+      Head = {
+        Width = 12,
+        Height = 14
+      }
+    }
   }
 }
+
+Global.ChangeScene = function(scene)
+  Global.Scene = scene
+end
 
 return Global
