@@ -48,8 +48,11 @@ function love.draw()
 
   DrawMatches()
 
+  local countdownWidth = Global.Width * (Global.Countdown / 10)
   love.graphics.setColor(Global.Colors.MatchHeadFill)
-  love.graphics.rectangle('fill', 0, Global.Height - 40, Global.Width * (Global.Countdown / 10), 40)
+  love.graphics.rectangle('fill', 0, Global.Height - 40, countdownWidth, 40)
+  love.graphics.setColor(Global.Colors.Grass)
+  love.graphics.rectangle('fill', countdownWidth, Global.Height - 40, Global.Width - countdownWidth, 40)
   love.graphics.setColor(Global.Colors.Outline)
   love.graphics.line(0, Global.Height - 40, Global.Width, Global.Height - 40)
 

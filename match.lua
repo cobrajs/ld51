@@ -12,6 +12,7 @@ function MatchNew(x, y)
   local match = {
     x = x, y = y,
     animation = {
+      bounce = 0
     },
     move = {
       to = nil
@@ -29,14 +30,18 @@ function MatchNew(x, y)
 end
 
 function MatchDraw(self)
+  local offset = math.abs(math.cos(self.animation.bounce)) * 10
   love.graphics.push()
-  love.graphics.translate(self.x, self.y)
+  love.graphics.translate(self.x, self.y - offset)
 
   local outline = Global.Colors.Outline
 
   if self == Global.HighlightMatch then
     outline = Global.Colors.MatchHeadFill
   end
+
+  love.graphics.setColor(0, 0, 0, 0.25)
+  love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2, Global.Sizes.Match.Width * 0.8)
 
   love.graphics.setColor(Global.Colors.MatchStickFill)
   love.graphics.rectangle('fill', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT, MATCH_STICK_WIDTH, MATCH_STICK_HEIGHT)
@@ -47,9 +52,6 @@ function MatchDraw(self)
   love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
   love.graphics.setColor(outline)
   love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
-
-  love.graphics.setColor(Global.Colors.Outline)
-  love.graphics.circle('fill', 0, 0, 4)
 
   if self.paired then
   end
@@ -83,6 +85,9 @@ function MatchDraw(self)
 
   love.graphics.pop()
 
+  love.graphics.setColor(Global.Colors.Outline)
+  love.graphics.circle('fill', self.x, self.y, 4)
+
   --[[
   if self.move.to then
     love.graphics.setColor(Global.Colors.Outline)
@@ -114,6 +119,7 @@ end
 local MOVE_SPEED = 70
 function MatchUpdate(self, dt)
   if self.move.to then
+    AnimateBounce(self, dt)
     self.x = self.x + self.move.by.x * dt * MOVE_SPEED
     self.y = self.y + self.move.by.y * dt * MOVE_SPEED
     if math.abs(self.x - self.move.to.x) <= 1 and math.abs(self.y - self.move.to.y) <= 1 then
@@ -185,6 +191,13 @@ function MatchUpdate(self, dt)
 
 end
 
+function AnimateBounce(self, dt)
+  self.animation.bounce = self.animation.bounce + dt * 10
+  if self.animation.bounce > 100 then
+    self.animation.bounce = 0
+  end
+end
+
 
 function GoToward(self, otherMatch, dt)
   local diffX = otherMatch.x - self.x
@@ -193,6 +206,7 @@ function GoToward(self, otherMatch, dt)
 
   if mag > MATCH_DIST then
     local unitX, unitY = getUnitVector(diffX, diffY)
+    AnimateBounce(self, dt)
     self.x = self.x + unitX * dt * MOVE_SPEED * 2 * math.random()
     self.y = self.y + unitY * dt * MOVE_SPEED * 2 * math.random()
     return false
@@ -208,7 +222,22 @@ function MatchPair(self, match)
     return
   end
 
-  local matchPercent = math.random()
+  local matchPercent = 0.5
+  if not self.taste.dislikes and not match.taste.dislikes and #self.taste.likes == #match.taste.likes and self.taste.likes[1] == match.taste.likes[1] then
+    matchPercent = 1
+  elseif #self.taste.likes ~= #match.taste.likes then
+    local matchCount = 0
+    for i, like in ipairs(self.taste.likes) do
+      for j, matchLike in ipairs(match.taste.likes) do
+        if like == matchLike then
+          matchCount = matchCount + 1
+        end
+      end
+    end
+    matchPercent = (matchCount * 2) / (#self.taste.likes + #match.taste.likes)
+  end
+
+  --local matchPercent = math.random()
   if matchPercent > 0.75 then
     Global.Sounds.match100:play()
   elseif matchPercent > 0.5 then
@@ -263,10 +292,6 @@ function AddRandomMatch()
   local level = Global.Levels[Global.Level]
   local likeCount = math.floor(math.random() * (level.MaxLikes - level.MinLikes + 1)) + level.MinLikes
   match.taste.likes = RandomChoices(level.Likes, likeCount)
-  print("Random Likes: " .. #match.taste.likes )
-  for i, like in ipairs(match.taste.likes) do
-    print("  - " .. like)
-  end
   
   if level.Dislikes then
     local dislikeCount = math.floor(math.random() * (level.MaxDislikes - level.MinDislikes + 1)) + level.MinDislikes
