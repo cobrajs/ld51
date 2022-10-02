@@ -7,6 +7,22 @@ require('match')
 require('scenes.intro')
 require('scenes.game')
 
+function SwitchScene(newScene)
+  if Global.Scene == 'game' then
+    GameUnload()
+  elseif Global.Scene == 'intro' then
+    IntroUnload()
+  end
+
+  if newScene == 'game' then
+    GameLoad()
+  elseif newScene == 'intro' then
+    IntroLoad()
+  end
+
+  Global.Scene = newScene
+end
+
 function love.load()
   local width, height, flags = love.window.getMode()
   Global.Width = width

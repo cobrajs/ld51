@@ -1,17 +1,17 @@
 
 function IntroLoad()
 end
+function IntroUnload()
+end
 
 function IntroDraw()
-  love.graphics.clear()
-
-  love.graphics.print("Welcome to It's a Match!", Global.Width / 2 - 50, Global.Height / 2)
-  love.graphics.print("Click to Start", Global.Width / 2 - 30, Global.Height / 2 + 40)
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.draw(Global.Images.Intro, 0, 0)
 end
 
 function IntroUpdate(dt)
 end
 
 function IntroMousePressed(x, y, button)
-  Global.Scene = 'game'
+  SwitchScene('game')
 end

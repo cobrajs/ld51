@@ -1,10 +1,6 @@
 function GameLoad()
   ClearMatches()
 
-  for i = 1, Global.Levels[Global.Level].MatchCount do
-    AddRandomMatch()
-  end
-
   Global.Countdown = 10
   Global.Level = 1
   Global.HeartsLevel = 1.5
@@ -12,10 +8,23 @@ function GameLoad()
   Global.HighlightMatch = nil
   Global.GameOver = false
   Global.Win = false
+
+  Global.Music:play()
+  Global.Music:setLooping(true)
+
+  for i = 1, Global.Levels[Global.Level].MatchCount do
+    AddRandomMatch()
+  end
+end
+
+function GameUnload()
+  Global.Music:stop()
 end
 
 function GameDraw()
   love.graphics.clear(Global.Colors.Grass)
+  love.graphics.setColor(Global.Colors.Sky)
+  love.graphics.rectangle('fill', 0, 0, Global.Width, 80)
 
   DrawMatches()
 
@@ -81,6 +90,10 @@ function GameUpdate(dt)
 end
 
 function GameMousePressed(x, y, button)
+  if Global.GameOver then
+    SwitchScene('intro')
+  end
+
   local highlightMatch = NearestMatch(x, y, 50)
   if highlightMatch then
     --highlightMatch.chatting.match.chatting = nil
@@ -97,6 +110,10 @@ function GameMousePressed(x, y, button)
 end
 
 function GameMouseMoved(x, y, dx, dy)
+  if Global.GameOver then
+    return
+  end
+
   if Global.MouseHover.Time == 0 then
     local hoverMatch = NearestMatch(x, y, 50)
     if hoverMatch then
@@ -118,19 +135,23 @@ function CountdownEnded()
   local heartsChange = 0
   local pairCount = 0
   local burntCount = 0
+  local leavingMatches = 0
   for i, match in ipairs(Global.Matches) do
     if match.state.lit or match.state.burnt then
       burntCount = burntCount + 1
       MatchLeave(match)
+      leavingMatches = leavingMatches + 1
     end
 
     if match.paired then
       pairCount = pairCount + 0.5
       MatchLeave(match)
+      leavingMatches = leavingMatches + 1
     end
   end
   print('Pair count: ' .. pairCount)
   print('Burnt count: ' .. burntCount)
+  print('Leaving: ' .. leavingMatches)
 
   if pairCount == 0 then
     heartsChange = -0.5
@@ -152,6 +173,12 @@ function CountdownEnded()
   Global.Level = Global.Level + 1
   if Global.Level > #Global.Levels then
     GameOver(true)
+  end
+  local matchDisparity = Global.Levels[Global.Level].MatchCount - (#Global.Matches - leavingMatches)
+  if matchDisparity > 0  then
+    for i = 1, matchDisparity do
+      AddRandomMatch()
+    end
   end
 end
 
@@ -177,11 +204,11 @@ function DrawGameOver()
   love.graphics.setColor(0, 0, 0, 0.2)
   love.graphics.rectangle('fill', 0, 0, Global.Width, Global.Height)
 
-  local text = "Game Over!"
+  local image = Global.Images.GameOver
   if Global.Win then
-    text = "You Win!"
+    image = Global.Images.YouWin
   end
   love.graphics.setColor(Global.Colors.White)
-  love.graphics.print(text, Global.Width / 2 - 50, Global.Height / 2 - 5 + math.floor(math.sin(Global.GameOverBounce) * 10))
+  love.graphics.draw(image, Global.Width / 2 - image:getWidth() / 2, Global.Height / 2 - image:getHeight() / 2 + math.floor(math.sin(Global.GameOverBounce) * 10))
 end
 

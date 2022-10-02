@@ -164,13 +164,13 @@ function MatchUpdate(self, dt)
   if self.move.to then
     self.animation.stopBounce = false
     local moveSpeed = MOVE_SPEED
-    if self.state.leaving then moveSpeed = moveSpeed * 3
+    if self.state.leaving or self.state.arriving then moveSpeed = moveSpeed * 4
     elseif self.state.lit then moveSpeed = moveSpeed * 1.3
     elseif self.state.burnt then moveSpeed = moveSpeed * 0.5
     end
 
     GoToward(self, self.move.to, dt, moveSpeed)
-    if math.abs(self.x - self.move.to.x) <= 1 and math.abs(self.y - self.move.to.y) <= 1 then
+    if math.abs(self.x - self.move.to.x) <= 3 and math.abs(self.y - self.move.to.y) <= 3 then
       self.x = self.move.to.x
       self.y = self.move.to.y
       self.move.to = nil
@@ -178,6 +178,9 @@ function MatchUpdate(self, dt)
       if self.state.leaving then
         RemoveMatch(self)
         return
+      end
+      if self.state.arriving then
+        self.state.arriving = false
       end
     end
   elseif self.paired then
@@ -522,7 +525,18 @@ end
 -- Functions for managing all matches
 
 function AddRandomMatch()
-  local match = MatchNew(love.math.random(Global.Width - 40) + 20, love.math.random(Global.Height - Global.Sizes.Match.Height - 30 - 40) + Global.Sizes.Match.Height + 50)
+  local side = love.math.random(2)
+  local startX = 0
+  local y = love.math.random(Global.Height - Global.Sizes.Match.Height - 100) + Global.Sizes.Match.Height + 50
+  local targetX = 0
+  if side == 1 then -- Left
+    startX = -40
+    targetX = love.math.random(Global.Width / 2) + 20
+  elseif side == 2 then -- Right
+    startX = Global.Width + 40
+    targetX = love.math.random(Global.Width / 2 - 20) + Global.Width / 2
+  end
+  local match = MatchNew(startX, y)
   local level = Global.Levels[Global.Level]
   local likeCount = love.math.random(level.MinLikes, level.MaxLikes)
   match.taste.likes = RandomChoices(level.Likes, likeCount)
@@ -531,6 +545,13 @@ function AddRandomMatch()
     local dislikeCount = love.math.random(level.MinDislikes, level.MaxDislikes)
     match.taste.dislikes = RandomChoices(level.Dislikes, dislikeCount)
   end
+
+  match.move.to = {
+    x = targetX,
+    y = y
+  }
+
+  match.state.arriving = true
 
   table.insert(Global.Matches, match)
 end

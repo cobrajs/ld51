@@ -13,16 +13,17 @@ local Global = {
     HeartFill = getColor(194, 140, 174),
     Outline = getColor(45, 35, 46),
     Grass = getColor(0, 207, 193),
+    Sky = getColor(5, 60, 94),
     White = getColor(255, 255, 255),
     HoverOutline = getColor(45, 35, 46, 0.5),
   },
   
   -- Assets
   Sounds = {
-    match100 = love.audio.newSource('assets/sfx/100_match.ogg', 'static'),
-    match75 = love.audio.newSource('assets/sfx/75_match.ogg', 'static'),
-    match50 = love.audio.newSource('assets/sfx/50_match.ogg', 'static'),
-    match25 = love.audio.newSource('assets/sfx/25_match.ogg', 'static'),
+    match100 = love.audio.newSource('assets/sfx/100_match2.ogg', 'static'),
+    match75 = love.audio.newSource('assets/sfx/75_match2.ogg', 'static'),
+    match50 = love.audio.newSource('assets/sfx/50_match2.ogg', 'static'),
+    match25 = love.audio.newSource('assets/sfx/25_match2.ogg', 'static'),
 
     Burn = love.audio.newSource('assets/sfx/burn.ogg', 'static'),
 
@@ -35,9 +36,13 @@ local Global = {
       love.audio.newSource('assets/sfx/chat1.ogg', 'static'),
       love.audio.newSource('assets/sfx/chat2.ogg', 'static'),
       love.audio.newSource('assets/sfx/chat3.ogg', 'static'),
-    }
+    },
   },
+  Music = love.audio.newSource('assets/music/game_music.ogg', 'stream'),
   Images = {
+    GameOver = love.graphics.newImage('assets/gfx/game_over.png'),
+    YouWin = love.graphics.newImage('assets/gfx/you_win.png'),
+    Intro = love.graphics.newImage('assets/gfx/intro.png')
   },
   Prerendered = {
     LikeBubble = {
@@ -50,7 +55,7 @@ local Global = {
   Matches = {},
 
   -- Game State Details
-  Scene = 'game',
+  Scene = 'intro',
   Level = 1,
   Countdown = 0,
   HeartsLevel = 2,
