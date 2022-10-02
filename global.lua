@@ -1,6 +1,6 @@
-function getColor(r, g, b)
+function getColor(r, g, b, a)
   local rr, gg, bb = love.math.colorFromBytes(r, g, b)
-  return {rr, gg, bb}
+  return {rr, gg, bb, a}
 end
 
 local Global = {
@@ -13,7 +13,8 @@ local Global = {
     HeartFill = getColor(194, 140, 174),
     Outline = getColor(45, 35, 46),
     Grass = getColor(0, 207, 193),
-    White = getColor(255, 255, 255)
+    White = getColor(255, 255, 255),
+    HoverOutline = getColor(45, 35, 46, 0.5),
   },
   
   -- Assets
@@ -52,6 +53,7 @@ local Global = {
   Scene = 'game',
   Level = 1,
   Countdown = 0,
+  HeartsLevel = 1.5,
   MouseHover = {
     Time = 0,
     Match = nil
@@ -60,7 +62,39 @@ local Global = {
   -- Levels Info
   Levels = {
     {
-      Likes = {1, 2, 3},
+      Likes = {1, 2},
+      Dislikes = nil,
+      MaxLikes = 2,
+      MinLikes = 1,
+      MaxDislikes = 0,
+      MinDislikes = 0
+    },
+    {
+      Likes = {1, 2},
+      Dislikes = nil,
+      MaxLikes = 2,
+      MinLikes = 1,
+      MaxDislikes = 0,
+      MinDislikes = 0
+    },
+    {
+      Likes = {1, 2},
+      Dislikes = nil,
+      MaxLikes = 2,
+      MinLikes = 1,
+      MaxDislikes = 0,
+      MinDislikes = 0
+    },
+    {
+      Likes = {1, 2},
+      Dislikes = nil,
+      MaxLikes = 2,
+      MinLikes = 1,
+      MaxDislikes = 0,
+      MinDislikes = 0
+    },
+    {
+      Likes = {1, 2},
       Dislikes = nil,
       MaxLikes = 2,
       MinLikes = 1,
@@ -70,8 +104,8 @@ local Global = {
   },
 
   Sizes = {
-    Like = 26,
-    LikeRadius = 13,
+    Like = 32,
+    LikeRadius = 16,
     Match = {
       Width = 20,
       Height = 80,

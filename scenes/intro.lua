@@ -1,3 +1,7 @@
+
+function IntroLoad()
+end
+
 function IntroDraw()
 end
 

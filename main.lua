@@ -1,7 +1,8 @@
+Global = require('global')
+
 require('utils')
 
 require('match')
-local Global = require('global')
 
 require('scenes.intro')
 require('scenes.game')
@@ -10,10 +11,6 @@ function love.load()
   local width, height, flags = love.window.getMode()
   Global.Width = width
   Global.Height = height
-
-  for i = 1, 6 do
-    AddRandomMatch()
-  end
 
   love.graphics.setLineJoin('none')
   love.graphics.setLineWidth(4)
@@ -32,45 +29,27 @@ function love.load()
     love.graphics.setCanvas()
   end
 
-  Global.Countdown = 10
+  if Global.Scene == 'game' then
+    GameLoad()
+  elseif Global.Scene == 'intro' then
+    IntroLoad()
+  end
 end
 
 function love.update(dt)
-  UpdateMatches(dt)
-
-  Global.Countdown = decreaseTime(Global.Countdown, dt)
-  if Global.Countdown <= 0 then
-    Global.Countdown = 10
-    
-    CountdownEnded()
+  if Global.Scene == 'game' then
+    GameUpdate(dt)
+  elseif Global.Scene == 'intro' then
+    IntroUpdate(dt)
   end
 end
 
 function love.draw()
-  love.graphics.clear(Global.Colors.Grass)
-
-  DrawMatches()
-
-  local countdownWidth = Global.Width * (Global.Countdown / 10)
-  love.graphics.setColor(Global.Colors.MatchHeadFill)
-  love.graphics.rectangle('fill', 0, Global.Height - 40, countdownWidth, 40)
-  love.graphics.setColor(Global.Colors.Grass)
-  love.graphics.rectangle('fill', countdownWidth, Global.Height - 40, Global.Width - countdownWidth, 40)
-  love.graphics.setColor(Global.Colors.Outline)
-  love.graphics.line(0, Global.Height - 40, Global.Width, Global.Height - 40)
-
-  --[[
-  love.graphics.setColor(Global.Colors.MatchStickFill)
-  love.graphics.rectangle('fill', 0, 0, 30, 30)
-  love.graphics.setColor(Global.Colors.MatchStickBurntFill)
-  love.graphics.rectangle('fill', 30, 0, 30, 30)
-  love.graphics.setColor(Global.Colors.MatchHeadFill)
-  love.graphics.rectangle('fill', 60, 0, 30, 30)
-  love.graphics.setColor(Global.Colors.HeartFill)
-  love.graphics.rectangle('fill', 90, 0, 30, 30)
-  love.graphics.setColor(Global.Colors.Outline)
-  love.graphics.rectangle('fill', 120, 0, 30, 30)
-  --]]
+  if Global.Scene == 'game' then
+    GameDraw()
+  elseif Global.Scene == 'intro' then
+    IntroDraw()
+  end
 end
 
 function love.keypressed(key)
@@ -80,28 +59,23 @@ function love.keypressed(key)
 end
 
 function love.mousepressed(x, y, button)
-  local highlightMatch = NearestMatch(x, y, 50)
-  if highlightMatch then
-    --highlightMatch.chatting.match.chatting = nil
-    --highlightMatch.chatting = nil
-    if Global.HighlightMatch then
-      MatchPair(Global.HighlightMatch, highlightMatch)
-      Global.HighlightMatch = nil
-    else
-      Global.HighlightMatch = highlightMatch
-    end
-  else
-    Global.HighlightMatch = nil
+  if Global.Scene == 'game' then
+    GameMousePressed(x, y, button)
+  elseif Global.Scene == 'intro' then
   end
 end
 
 function love.mousemoved(x, y, dx, dy)
+  if Global.Scene == 'game' then
+    GameMouseMoved(x, y, dx, dy)
+  elseif Global.Scene == 'intro' then
+  end
 end
 
 function love.wheelmoved(x, y)
-end
-
-
-function CountdownEnded()
+  if Global.Scene == 'game' then
+    GameWheelMoved(x, y)
+  elseif Global.Scene == 'intro' then
+  end
 end
 

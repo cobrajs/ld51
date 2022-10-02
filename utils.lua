@@ -1,5 +1,3 @@
-local Global = require('global')
-
 function getDist(a, b)
   return math.sqrt(math.pow(a.x - b.x, 2) + math.pow(a.y - b.y, 2))
 end
@@ -17,8 +15,8 @@ function getUnitVector(x, y)
 end
 
 function renderLike(likeId, x, y)
-  local offset = 2
-  love.graphics.setLineWidth(2)
+  local offset = 3
+  love.graphics.setLineWidth(3)
   if likeId == 1 then
     love.graphics.setColor(Global.Colors.White)
     love.graphics.circle('fill', x + Global.Sizes.LikeRadius, y + Global.Sizes.LikeRadius, Global.Sizes.LikeRadius - offset * 2)
@@ -33,8 +31,121 @@ function renderLike(likeId, x, y)
     love.graphics.setColor(Global.Colors.Outline)
     love.graphics.line(x + Global.Sizes.LikeRadius, y + offset * 2, x + Global.Sizes.LikeRadius, y + Global.Sizes.Like - offset * 2)
     love.graphics.line(x + offset * 2, y + Global.Sizes.LikeRadius, x + Global.Sizes.Like - offset * 2, y + Global.Sizes.LikeRadius)
+  elseif likeId == 4 then
+    local thirds = Global.Sizes.Like / 4
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.line(x + offset * 2, y + offset + thirds, x + Global.Sizes.Like - offset * 2, y + offset + thirds)
+    love.graphics.line(x + offset * 2, y + offset + thirds * 2, x + Global.Sizes.Like - offset * 2, y + offset + thirds * 2)
+  elseif likeId == 5 then
+    local thirds = Global.Sizes.Like / 4
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.line(x + offset + thirds, y + offset * 2, x + offset + thirds, y + Global.Sizes.Like - offset * 2)
+    love.graphics.line(x + offset + thirds * 2, y + offset * 2, x + offset + thirds * 2, y + Global.Sizes.Like - offset * 2)
   end
   love.graphics.setLineWidth(4)
+end
+
+function renderDislike(likeId, x, y)
+  local offset = 3
+  love.graphics.setLineWidth(3)
+  if likeId == 1 then
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.circle('fill', x + Global.Sizes.LikeRadius, y + Global.Sizes.LikeRadius, Global.Sizes.LikeRadius - offset * 2)
+  elseif likeId == 2 then
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.rectangle('fill', x + offset * 2, y + offset * 2, Global.Sizes.Like - offset * 4, Global.Sizes.Like - offset * 4)
+  elseif likeId == 3 then
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.rectangle('fill', x + offset, y + offset, Global.Sizes.Like - offset * 2, Global.Sizes.Like - offset * 2)
+    love.graphics.setColor(Global.Colors.White)
+    love.graphics.line(x + Global.Sizes.LikeRadius, y + offset * 2, x + Global.Sizes.LikeRadius, y + Global.Sizes.Like - offset * 2)
+    love.graphics.line(x + offset * 2, y + Global.Sizes.LikeRadius, x + Global.Sizes.Like - offset * 2, y + Global.Sizes.LikeRadius)
+  elseif likeId == 4 then
+    local thirds = Global.Sizes.Like / 4
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.rectangle('fill', x + offset, y + offset, Global.Sizes.Like - offset * 2, Global.Sizes.Like - offset * 2)
+    love.graphics.setColor(Global.Colors.White)
+    love.graphics.line(x + offset * 2, y + offset + thirds, x + Global.Sizes.Like - offset * 2, y + offset + thirds)
+    love.graphics.line(x + offset * 2, y + offset + thirds * 2, x + Global.Sizes.Like - offset * 2, y + offset + thirds * 2)
+  elseif likeId == 5 then
+    local thirds = Global.Sizes.Like / 4
+    love.graphics.setColor(Global.Colors.Outline)
+    love.graphics.rectangle('fill', x + offset, y + offset, Global.Sizes.Like - offset * 2, Global.Sizes.Like - offset * 2)
+    love.graphics.setColor(Global.Colors.White)
+    love.graphics.line(x + offset + thirds, y + offset * 2, x + offset + thirds, y + Global.Sizes.Like - offset * 2)
+    love.graphics.line(x + offset + thirds * 2, y + offset * 2, x + offset + thirds * 2, y + Global.Sizes.Like - offset * 2)
+  end
+  love.graphics.setLineWidth(4)
+end
+
+function renderHeart(x, y, size, fillPercent, fillType)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+
+  if not fillType then
+    fillType = 'vertical'
+  end
+
+  if fillPercent == nil then
+    fillPercent = 1
+  end
+
+  local halfSize = size / 2
+  local circleRadius = size / 4
+  local circleOffset = size / 12
+
+  love.graphics.setLineJoin('bevel')
+
+  if fillType == 'vertical' then
+    love.graphics.setScissor(x - halfSize, y - halfSize, size, size * (1 - fillPercent))
+  else
+    love.graphics.setScissor(x - halfSize + size * fillPercent, y - halfSize, size * (1 - fillPercent), size)
+  end
+  love.graphics.setColor(Global.Colors.White)
+  love.graphics.arc('fill', -circleRadius, -circleRadius, circleRadius, math.pi, math.pi * 2)
+  love.graphics.arc('fill', circleRadius, -circleRadius, circleRadius, math.pi, math.pi * 2)
+  love.graphics.polygon('fill', -halfSize, -circleRadius,  0, halfSize,  halfSize, -circleRadius)
+
+
+  if fillType == 'vertical' then
+    love.graphics.setScissor(x - halfSize, y - halfSize + size * (1 - fillPercent), size, size * fillPercent)
+  else
+    love.graphics.setScissor(x - halfSize, y - halfSize, size * fillPercent, size)
+  end
+  love.graphics.setColor(Global.Colors.HeartFill)
+  love.graphics.arc('fill', -circleRadius, -circleRadius, circleRadius, math.pi * 0.9, math.pi * 2)
+  love.graphics.arc('fill', circleRadius, -circleRadius, circleRadius, math.pi, math.pi * 2)
+  love.graphics.polygon('fill', -halfSize, -circleRadius,  0, halfSize,  halfSize, -circleRadius)
+
+  love.graphics.setScissor()
+
+  love.graphics.setColor(Global.Colors.Outline)
+  love.graphics.arc('line', 'open', -circleRadius, -circleRadius, circleRadius, math.pi * 0.9, math.pi * 2)
+  love.graphics.arc('line', 'open', circleRadius, -circleRadius, circleRadius, math.pi, math.pi * 2.1)
+  love.graphics.line(-halfSize + circleOffset / 3, -circleRadius + circleOffset,  0, halfSize,  halfSize - circleOffset / 3, -circleRadius + circleOffset)
+
+  love.graphics.pop()
+end
+
+function renderHalfHeart(x, y, size)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+
+  local halfSize = size / 2
+  local circleRadius = size / 4
+  local circleOffset = size / 12
+
+  love.graphics.setLineJoin('bevel')
+
+  love.graphics.setColor(Global.Colors.HeartFill)
+  love.graphics.arc('fill', -circleRadius, -circleRadius, circleRadius, math.pi * 0.9, math.pi * 2)
+  love.graphics.polygon('fill', -halfSize, -circleRadius,  0, halfSize,  0, -circleRadius)
+
+  love.graphics.setColor(Global.Colors.Outline)
+  love.graphics.arc('line', 'open', -circleRadius, -circleRadius, circleRadius, math.pi * 0.9, math.pi * 2)
+  love.graphics.line(-halfSize + circleOffset / 3, -circleRadius + circleOffset,  0, halfSize,  0, -circleRadius - circleOffset)
+
+  love.graphics.pop()
 end
 
 function RandomChoices(choiceList, choiceCount)
@@ -94,6 +205,9 @@ function renderRoundedRect(polygon, outlineColor, fillColor)
 end
 
 
-function decreaseTime(baseTime, dt)
-  return baseTime - dt * 0.5
+function decreaseTime(baseTime, dt, burnSpeed)
+  if burnSpeed == nil then
+    burnSpeed = 1
+  end
+  return baseTime - dt * burnSpeed --* 0.5
 end

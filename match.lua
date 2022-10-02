@@ -1,11 +1,3 @@
-local Global = require('global')
-
-local MATCH_STICK_WIDTH = 16
-local MATCH_STICK_HEIGHT = 70
-local MATCH_HEAD_RADIUS = 12
-local MATCH_WIDTH = 20
-local MATCH_HEIGHT = 80
-
 local MATCH_DIST = 26
 
 function MatchNew(x, y)
@@ -21,7 +13,9 @@ function MatchNew(x, y)
     },
     state = {
       lit = false,
-      burnt = false
+      burnt = false,
+      leaving = false,
+      arriving = false
     },
     taste = {
       show = true
@@ -50,20 +44,32 @@ function MatchDraw(self)
   love.graphics.translate(self.x, self.y - offset)
 
   local outline = Global.Colors.Outline
+  local shadowWeight = 0.05
 
   if self == Global.HighlightMatch then
     outline = Global.Colors.MatchHeadFill
   end
 
-  love.graphics.setColor(0, 0, 0, 0.05)
+  if self == Global.MouseHover.Match then
+    shadowWeight = 0.2
+    love.graphics.setLineWidth(8)
+    love.graphics.setColor(outline[1], outline[2], outline[3], 0.5)
+    love.graphics.rectangle('line', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
+    love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+
+    love.graphics.setLineWidth(4)
+  end
+
+
+  love.graphics.setColor(0, 0, 0, shadowWeight)
   love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2, Global.Sizes.Match.Width * 0.8)
-  love.graphics.setColor(0, 0, 0, 0.1)
+  love.graphics.setColor(0, 0, 0, shadowWeight * 1.5)
   love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2 - offset / 4, Global.Sizes.Match.Width * 0.8 - offset / 4)
 
   love.graphics.setColor(Global.Colors.MatchStickFill)
-  love.graphics.rectangle('fill', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT, MATCH_STICK_WIDTH, MATCH_STICK_HEIGHT)
+  love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
   love.graphics.setColor(outline)
-  love.graphics.rectangle('line', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT, MATCH_STICK_WIDTH, MATCH_STICK_HEIGHT)
+  love.graphics.rectangle('line', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
 
   love.graphics.setColor(Global.Colors.MatchHeadFill)
   love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
@@ -87,7 +93,7 @@ function MatchDraw(self)
 
   if self.chatting and self.chatting.near then
     local x = -Global.Prerendered.LikeBubble[1]:getWidth() / 2
-    local y = -MATCH_HEIGHT - 40
+    local y = -Global.Sizes.Match.Height - 40
     love.graphics.draw(Global.Prerendered.LikeBubble[1], x, y)
     if self.chatting.like then
       renderLike(self.chatting.like, x + 2, y + 2)
@@ -101,11 +107,16 @@ function MatchDraw(self)
     local tastesCount = #self.taste.likes + (self.taste.dislikes and #self.taste.dislikes or 0)
     local tastesWidth = tastesCount * Global.Sizes.Like
     local tasteX = -tastesWidth / 2
-    local tasteY = -MATCH_HEIGHT - 40
+    local tasteY = -Global.Sizes.Match.Height - 40
     love.graphics.draw(Global.Prerendered.LikeThought[tastesCount], -Global.Prerendered.LikeThought[tastesCount]:getWidth() / 2, tasteY)
 
     for i, like in ipairs(self.taste.likes) do
       renderLike(like, tasteX, tasteY + 2)
+      tasteX = tasteX + Global.Sizes.Like
+    end
+
+    for i, dislike in ipairs(self.taste.dislikes) do
+      renderDislike(dislike, tasteX, tasteY + 2)
       tasteX = tasteX + Global.Sizes.Like
     end
   end
@@ -126,26 +137,15 @@ function MatchDraw(self)
 
   if self.paired and self.paired.original and self.paired.near then
     local midX = self.x + (self.paired.match.x - self.x) / 2
-    local midY = self.y + (self.paired.match.y - self.y) / 2 - MATCH_STICK_HEIGHT / 2
-    local fillHeight = math.floor((self.paired.loveLevel.burnLevel / 10) * 40)
+    local midY = self.y + (self.paired.match.y - self.y) / 2 - Global.Sizes.Match.Stick.Height / 2
 
-    love.graphics.setScissor(midX - 20, midY - 20, 40, 40 - fillHeight)
-    love.graphics.setColor(Global.Colors.White)
-    love.graphics.circle('fill', midX, midY, 20)
-    love.graphics.setScissor()
-
-    love.graphics.setScissor(midX - 20, midY - 20 + 40 - fillHeight, 40, fillHeight)
-    love.graphics.setColor(Global.Colors.HeartFill)
-    love.graphics.circle('fill', midX, midY, 20)
-    love.graphics.setScissor()
-
-    love.graphics.setColor(Global.Colors.Outline)
-    love.graphics.circle('line', midX, midY, 20)
+    renderHeart(midX, midY, 40, self.paired.loveLevel.burnLevel / 10, 'horizontal')
   end
 end
 
 
 local MOVE_SPEED = 70
+
 function MatchUpdate(self, dt)
   AnimateBounce(self, dt)
   AnimateBurning(self, dt)
@@ -156,13 +156,11 @@ function MatchUpdate(self, dt)
     elseif self.state.burnt then moveSpeed = moveSpeed * 0.5
     end
 
-    self.x = self.x + self.move.by.x * dt * moveSpeed
-    self.y = self.y + self.move.by.y * dt * moveSpeed
+    GoToward(self, self.move.to, dt, moveSpeed)
     if math.abs(self.x - self.move.to.x) <= 1 and math.abs(self.y - self.move.to.y) <= 1 then
       self.x = self.move.to.x
       self.y = self.move.to.y
       self.move.to = nil
-      self.move.by = nil
       self.cooldowns.walk = love.math.random(10) / 8
     end
   elseif self.paired then
@@ -211,7 +209,7 @@ function MatchUpdate(self, dt)
   end
 
   if self.paired and self.paired.near then
-    self.paired.loveLevel.burnLevel = decreaseTime(self.paired.loveLevel.burnLevel, dt)
+    self.paired.loveLevel.burnLevel = decreaseTime(self.paired.loveLevel.burnLevel, dt, self.paired.loveLevel.burnSpeed)
 
     if self.paired.loveLevel.burnLevel <= 0 then
       local otherMatch = self.paired.match
@@ -321,10 +319,13 @@ function GoTowardMatch(self, otherMatch, dt)
   return true
 end
 
-function GoToward(self, point, dt)
+function GoToward(self, point, dt, moveSpeed)
+  if moveSpeed == nil then
+    moveSpeed = MOVE_SPEED * 2
+  end
   local unitX, unitY = getUnitVector(point.x - self.x, point.y - self.y)
-  self.x = self.x + unitX * dt * MOVE_SPEED * 2
-  self.y = self.y + unitY * dt * MOVE_SPEED * 2
+  self.x = self.x + unitX * dt * moveSpeed
+  self.y = self.y + unitY * dt * moveSpeed
 end
 
 
@@ -359,21 +360,12 @@ function RandomWalk(self)
   if x < 20 then x = 20
   elseif x > Global.Width - 20 then x = Global.Width - 20
   end
-  if y < MATCH_HEIGHT + 10 then y = MATCH_HEIGHT + 10
+  if y < Global.Sizes.Match.Height + 40 then y = Global.Sizes.Match.Height + 40
   elseif y > Global.Height - 60 then y = Global.Height - 60
   end
 
   self.move.to = {
     x = x, y = y
-  }
-
-  local diffX = x - self.x
-  local diffY = y - self.y
-  local mag = getMagnitude(diffX, diffY)
-  local unitX, unitY = getUnitVector(diffX, diffY)
-  self.move.by = {
-    x = unitX,
-    y = unitY
   }
 end
 
@@ -450,10 +442,17 @@ function MatchPair(self, match)
     EndChatting(match)
   end
 
+  print('Match: ' .. matchPercent)
   local loveLevel = {
     level = matchPercent,
-    burnLevel = 10 * matchPercent
+    --burnLevel = 10 * matchPercent,
+    burnLevel = 10,
+    burnSpeed = 0
   }
+
+  if matchPercent < 1 then
+    loveLevel.burnSpeed = 1 / matchPercent
+  end
 
   self.move.to = nil
   self.move.by = nil
@@ -477,7 +476,7 @@ end
 -- Functions for managing all matches
 
 function AddRandomMatch()
-  local match = MatchNew(love.math.random(Global.Width - 40) + 20, love.math.random(Global.Height - MATCH_HEIGHT - 30 - 40) + MATCH_HEIGHT + 50)
+  local match = MatchNew(love.math.random(Global.Width - 40) + 20, love.math.random(Global.Height - Global.Sizes.Match.Height - 30 - 40) + Global.Sizes.Match.Height + 50)
   local level = Global.Levels[Global.Level]
   local likeCount = love.math.random(level.MinLikes, level.MaxLikes)
   match.taste.likes = RandomChoices(level.Likes, likeCount)
@@ -493,7 +492,7 @@ end
 
 -- Fix sorting so that the Original will display the heart correctly
 function ZSortMatch(matchA, matchB)
-  return (matchA.y - ((matchA.paired and matchA.original) and 10 or 0)) < (matchB.y - ((matchB.paired and matchB.original) and 10 or 0))
+  return (matchA.y - ((matchA.paired and matchA.paired.original) and 20 or 0)) < (matchB.y - ((matchB.paired and matchB.paired.original) and 20 or 0))
 end
 
 function UpdateMatches(dt)
@@ -507,8 +506,12 @@ end
 function DrawMatches()
   for i, match in ipairs(Global.Matches) do
     MatchDraw(match)
+  end
+end
 
-    love.graphics.print('Match: ' .. (match.chatting and match.chatting.chatTime or 'nil'), 10, 10 + 20 * (i - 1))
+function ClearMatches()
+  for i = 1, #Global.Matches do
+    table.remove(Global.Matches)
   end
 end
 
@@ -518,7 +521,8 @@ function NearestMatch(x, y, radius)
   local point = {x = x, y = y}
 
   for i, match in ipairs(Global.Matches) do
-    local dist = getDist(match, point)
+    local centerMatch = {x = match.x, y = match.y - Global.Sizes.Match.Height / 2}
+    local dist = getDist(centerMatch, point)
     if dist < nearestDist then
       nearest = match
       nearestDist = dist
