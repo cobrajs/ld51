@@ -12,7 +12,8 @@ function MatchNew(x, y)
   local match = {
     x = x, y = y,
     animation = {
-      bounce = 0
+      bounce = 0,
+      stopBounce = false
     },
     move = {
       to = nil
@@ -23,14 +24,15 @@ function MatchNew(x, y)
     },
     taste = {},
     paired = nil,
-    chatting = nil
+    chatting = nil,
+    chatCooldown = 0
   }
 
   return match
 end
 
 function MatchDraw(self)
-  local offset = math.abs(math.cos(self.animation.bounce)) * 10
+  local offset = math.abs(math.sin(self.animation.bounce)) * 10
   love.graphics.push()
   love.graphics.translate(self.x, self.y - offset)
 
@@ -41,7 +43,7 @@ function MatchDraw(self)
   end
 
   love.graphics.setColor(0, 0, 0, 0.25)
-  love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2, Global.Sizes.Match.Width * 0.8)
+  love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2 - offset / 10, Global.Sizes.Match.Width * 0.8 - offset / 10)
 
   love.graphics.setColor(Global.Colors.MatchStickFill)
   love.graphics.rectangle('fill', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT, MATCH_STICK_WIDTH, MATCH_STICK_HEIGHT)
@@ -85,8 +87,10 @@ function MatchDraw(self)
 
   love.graphics.pop()
 
+  --[[
   love.graphics.setColor(Global.Colors.Outline)
   love.graphics.circle('fill', self.x, self.y, 4)
+  --]]
 
   --[[
   if self.move.to then
@@ -118,8 +122,9 @@ end
 
 local MOVE_SPEED = 70
 function MatchUpdate(self, dt)
+  AnimateBounce(self, dt)
   if self.move.to then
-    AnimateBounce(self, dt)
+    self.animation.stopBounce = false
     self.x = self.x + self.move.by.x * dt * MOVE_SPEED
     self.y = self.y + self.move.by.y * dt * MOVE_SPEED
     if math.abs(self.x - self.move.to.x) <= 1 and math.abs(self.y - self.move.to.y) <= 1 then
@@ -129,20 +134,33 @@ function MatchUpdate(self, dt)
       self.move.by = nil
     end
   elseif self.paired and not self.paired.near then
+    self.animation.stopBounce = false
     if GoToward(self, self.paired.match, dt) then
       self.paired.near = true
-      self.paired.match.near = true
+      self.paired.match.paired.near = true
     end
-  elseif self.chatting and not self.chatting.near then
-    if GoToward(self, self.chatting.match, dt) then
-      self.chatting.near = true
-      self.chatting.match.near = true
+  elseif self.chatting then
+    if not self.chatting.near then
+      self.animation.stopBounce = false
+      if GoToward(self, self.chatting.match, dt) then
+        self.chatting.near = true
+        self.chatting.match.chatting.near = true
+      end
+    else
+      self.chatting.chatTime = self.chatting.chatTime - dt
+      if self.chatting.chatTime <= 0 then
+        print("Ending chat!")
+        self.chatting.match.chatCooldown = 2
+        self.chatCooldown = 2
+        self.chatting.match.chatting = nil
+        self.chatting = nil
+      end
     end
   elseif self.state.lit then
 
   elseif not self.paired and not self.chatting then
     local choice = math.random()
-    if choice > 0.95 then
+    if choice > 0.96 then
       local x = (math.random() * 200 - 100) + self.x 
       local y = (math.random() * 100 - 50) + self.y
       if x < 20 then x = 20
@@ -164,21 +182,18 @@ function MatchUpdate(self, dt)
         x = unitX,
         y = unitY
       }
-    elseif choice > 0.9 and choice < 0.94 and not self.state.lit and false then
+    elseif choice > 0.9 and choice < 0.92 and not self.state.lit and self.chatCooldown == 0 then
       local randomMatch = PickNearbyMatch(self)
       if randomMatch then
-        self.chatting = {
-          match = randomMatch
-        }
-        randomMatch.chatting = {
-          match = self
-        }
+        ChatPair(self, randomMatch)
       end
+    else
+      self.animation.stopBounce = true
     end
   end
 
   if self.paired and self.paired.near then
-    self.paired.loveLevel.burnLevel = self.paired.loveLevel.burnLevel - dt
+    self.paired.loveLevel.burnLevel = self.paired.loveLevel.burnLevel - dt * 10
 
     if self.paired.loveLevel.burnLevel <= 0 then
       local otherMatch = self.paired.match
@@ -192,8 +207,12 @@ function MatchUpdate(self, dt)
 end
 
 function AnimateBounce(self, dt)
+  if self.animation.stopBounce and self.animation.bounce == 0 then
+    return
+  end
+
   self.animation.bounce = self.animation.bounce + dt * 10
-  if self.animation.bounce > 100 then
+  if self.animation.bounce > math.pi then
     self.animation.bounce = 0
   end
 end
@@ -206,7 +225,6 @@ function GoToward(self, otherMatch, dt)
 
   if mag > MATCH_DIST then
     local unitX, unitY = getUnitVector(diffX, diffY)
-    AnimateBounce(self, dt)
     self.x = self.x + unitX * dt * MOVE_SPEED * 2 * math.random()
     self.y = self.y + unitY * dt * MOVE_SPEED * 2 * math.random()
     return false
@@ -267,6 +285,28 @@ function MatchPair(self, match)
   }
 end
 
+function ChatPair(self, match)
+  local chatTime = 2 --math.random() * 2 + 0.5
+  self.chatting = {
+    match = match,
+    chatTime = chatTime
+  }
+  if self.taste.dislike and math.random() > 0.6 then
+    self.chatting.dislike = RandomChoice(self.taste.dislikes)
+  else
+    self.chatting.like = RandomChoice(self.taste.likes)
+  end
+  match.chatting = {
+    match = self,
+    chatTime = chatTime
+  }
+  if match.taste.dislike and math.random() > 0.6 then
+    match.chatting.dislike = RandomChoice(match.taste.dislikes)
+  else
+    match.chatting.like = RandomChoice(match.taste.likes)
+  end
+end
+
 
 function PickNearbyMatch(self, allowPaired, allowChatting)
   local choices = {}
@@ -317,6 +357,8 @@ end
 function DrawMatches()
   for i, match in ipairs(Global.Matches) do
     MatchDraw(match)
+
+    love.graphics.print('Match: ' .. (match.chatting and match.chatting.chatTime or 'nil'), 10, 10 + 20 * (i - 1))
   end
 end
 

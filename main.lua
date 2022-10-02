@@ -79,6 +79,8 @@ end
 function love.mousepressed(x, y, button)
   local highlightMatch = NearestMatch(x, y, 100)
   if highlightMatch then
+    --highlightMatch.chatting.match.chatting = nil
+    --highlightMatch.chatting = nil
     if Global.HighlightMatch then
       MatchPair(Global.HighlightMatch, highlightMatch)
       Global.HighlightMatch = nil
