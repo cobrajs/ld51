@@ -12,8 +12,9 @@ function MatchNew(x, y)
   local match = {
     x = x, y = y,
     animation = {
-      bounce = 0,
-      stopBounce = false
+      bounce = love.math.random() * math.pi,
+      stopBounce = false,
+      burning = 0
     },
     move = {
       to = nil
@@ -22,11 +23,23 @@ function MatchNew(x, y)
       lit = false,
       burnt = false
     },
-    taste = {},
+    taste = {
+      show = true
+    },
     paired = nil,
     chatting = nil,
-    chatCooldown = 0
+    cooldowns = {
+      chat = 0,
+      walk = 0,
+      showTastes = 2,
+      lit = 0
+    },
+    sounds = {
+      step = Global.Sounds.Step[love.math.random(#Global.Sounds.Step)]:clone()
+    }
   }
+
+  match.sounds.step:setRelative(true)
 
   return match
 end
@@ -42,8 +55,10 @@ function MatchDraw(self)
     outline = Global.Colors.MatchHeadFill
   end
 
-  love.graphics.setColor(0, 0, 0, 0.25)
-  love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2 - offset / 10, Global.Sizes.Match.Width * 0.8 - offset / 10)
+  love.graphics.setColor(0, 0, 0, 0.05)
+  love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2, Global.Sizes.Match.Width * 0.8)
+  love.graphics.setColor(0, 0, 0, 0.1)
+  love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2 - offset / 4, Global.Sizes.Match.Width * 0.8 - offset / 4)
 
   love.graphics.setColor(Global.Colors.MatchStickFill)
   love.graphics.rectangle('fill', -MATCH_STICK_WIDTH / 2, -MATCH_STICK_HEIGHT, MATCH_STICK_WIDTH, MATCH_STICK_HEIGHT)
@@ -58,6 +73,16 @@ function MatchDraw(self)
   if self.paired then
   end
 
+  if self.state.lit then
+    local burnOffset = math.abs(math.cos(self.animation.burning)) * 10
+    love.graphics.setColor(Global.Colors.MatchHeadBurnFill)
+    love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height * 1.2 - burnOffset, Global.Sizes.Match.Head.Width * 1.5, Global.Sizes.Match.Head.Height * 2 + burnOffset)
+    love.graphics.setColor(Global.Colors.MatchHeadFill)
+    love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height * 1 - burnOffset, Global.Sizes.Match.Head.Width * 1.1, Global.Sizes.Match.Head.Height + burnOffset)
+    love.graphics.setColor(outline)
+    love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height * 1.2 - burnOffset, Global.Sizes.Match.Head.Width * 1.5, Global.Sizes.Match.Head.Height * 2 + burnOffset)
+  end
+
   love.graphics.setColor(Global.Colors.White)
 
   if self.chatting and self.chatting.near then
@@ -65,14 +90,14 @@ function MatchDraw(self)
     local y = -MATCH_HEIGHT - 40
     love.graphics.draw(Global.Prerendered.LikeBubble[1], x, y)
     if self.chatting.like then
-      renderLike(self.chatting.like, x, y + 2)
+      renderLike(self.chatting.like, x + 2, y + 2)
     elseif self.chatting.dislike then
-      renderLike(self.chatting.dislike, x, y + 2)
+      renderLike(self.chatting.dislike, x + 2, y + 2)
     end
   end
 
   -- Showing Tastes
-  if self.taste.show or true and not (self.chatting and self.chatting.near) then
+  if (self.taste.show or Global.HighlightMatch == self) and not (self.chatting and self.chatting.near) then
     local tastesCount = #self.taste.likes + (self.taste.dislikes and #self.taste.dislikes or 0)
     local tastesWidth = tastesCount * Global.Sizes.Like
     local tasteX = -tastesWidth / 2
@@ -99,7 +124,7 @@ function MatchDraw(self)
   end
   --]]
 
-  if self.paired and self.paired.near then
+  if self.paired and self.paired.original and self.paired.near then
     local midX = self.x + (self.paired.match.x - self.x) / 2
     local midY = self.y + (self.paired.match.y - self.y) / 2 - MATCH_STICK_HEIGHT / 2
     local fillHeight = math.floor((self.paired.loveLevel.burnLevel / 10) * 40)
@@ -123,66 +148,59 @@ end
 local MOVE_SPEED = 70
 function MatchUpdate(self, dt)
   AnimateBounce(self, dt)
+  AnimateBurning(self, dt)
   if self.move.to then
     self.animation.stopBounce = false
-    self.x = self.x + self.move.by.x * dt * MOVE_SPEED
-    self.y = self.y + self.move.by.y * dt * MOVE_SPEED
+    local moveSpeed = MOVE_SPEED
+    if self.state.lit then moveSpeed = moveSpeed * 1.3
+    elseif self.state.burnt then moveSpeed = moveSpeed * 0.5
+    end
+
+    self.x = self.x + self.move.by.x * dt * moveSpeed
+    self.y = self.y + self.move.by.y * dt * moveSpeed
     if math.abs(self.x - self.move.to.x) <= 1 and math.abs(self.y - self.move.to.y) <= 1 then
       self.x = self.move.to.x
       self.y = self.move.to.y
       self.move.to = nil
       self.move.by = nil
+      self.cooldowns.walk = love.math.random(10) / 8
     end
-  elseif self.paired and not self.paired.near then
+  elseif self.paired then
     self.animation.stopBounce = false
-    if GoToward(self, self.paired.match, dt) then
-      self.paired.near = true
-      self.paired.match.paired.near = true
-    end
-  elseif self.chatting then
-    if not self.chatting.near then
-      self.animation.stopBounce = false
-      if GoToward(self, self.chatting.match, dt) then
-        self.chatting.near = true
-        self.chatting.match.chatting.near = true
+    if not self.paired.near then
+      if GoTowardMatch(self, self.paired.match, dt) then
+        self.paired.near = true
       end
     else
+      EqualizePair(self, self.paired.match, dt)
+    end
+  elseif self.chatting then
+    self.animation.stopBounce = false
+    if not self.chatting.near then
+      if GoTowardMatch(self, self.chatting.match, dt) then
+        self.chatting.near = true
+        if self.chatting.sound then
+          --self.chatting.sound:setPosition(self.x, self.y, 0)
+          self.chatting.sound:play()
+        end
+      end
+    else
+      EqualizePair(self, self.chatting.match, dt)
+
       self.chatting.chatTime = self.chatting.chatTime - dt
       if self.chatting.chatTime <= 0 then
-        print("Ending chat!")
-        self.chatting.match.chatCooldown = 2
-        self.chatCooldown = 2
-        self.chatting.match.chatting = nil
-        self.chatting = nil
+        self.chatting.match.cooldowns.chat = 2
+        self.cooldowns.chat = 2
+        EndChatting(self)
       end
     end
   elseif self.state.lit then
-
+    RandomWalk(self)
   elseif not self.paired and not self.chatting then
-    local choice = math.random()
-    if choice > 0.96 then
-      local x = (math.random() * 200 - 100) + self.x 
-      local y = (math.random() * 100 - 50) + self.y
-      if x < 20 then x = 20
-      elseif x > Global.Width - 20 then x = Global.Width - 20
-      end
-      if y < MATCH_HEIGHT + 10 then y = MATCH_HEIGHT + 10
-      elseif y > Global.Height - 20 then y = Global.Height - 20
-      end
-
-      self.move.to = {
-        x = x, y = y
-      }
-
-      local diffX = x - self.x
-      local diffY = y - self.y
-      local mag = getMagnitude(diffX, diffY)
-      local unitX, unitY = getUnitVector(diffX, diffY)
-      self.move.by = {
-        x = unitX,
-        y = unitY
-      }
-    elseif choice > 0.9 and choice < 0.92 and not self.state.lit and self.chatCooldown == 0 then
+    local choice = love.math.random()
+    if choice > 0.96 and self.cooldowns.walk == 0 then
+      RandomWalk(self)
+    elseif choice > 0.9 and choice < 0.92 and not self.state.lit and self.cooldowns.chat == 0 then
       local randomMatch = PickNearbyMatch(self)
       if randomMatch then
         ChatPair(self, randomMatch)
@@ -193,18 +211,75 @@ function MatchUpdate(self, dt)
   end
 
   if self.paired and self.paired.near then
-    self.paired.loveLevel.burnLevel = self.paired.loveLevel.burnLevel - dt * 10
+    self.paired.loveLevel.burnLevel = decreaseTime(self.paired.loveLevel.burnLevel, dt)
 
     if self.paired.loveLevel.burnLevel <= 0 then
       local otherMatch = self.paired.match
       self.paired = nil
-      self.state.lit = true
+      LightMatch(self, true)
+
       otherMatch.paired = nil
-      otherMatch.state.lit = true
+      LightMatch(otherMatch)
     end
   end
 
+  HandleCooldown(self, 'chat', dt)
+  HandleCooldown(self, 'walk', dt)
+  HandleCooldown(self, 'showTastes', dt, DisableTasteShow)
+  if self.state.lit then
+    HandleCooldown(self, 'lit', dt, BurnOut)
+  end
 end
+
+function EndChatting(self)
+  if self.chatting.sound then
+    --self.chatting.sound:setPosition(self.x, self.y, 0)
+    self.chatting.sound:stop()
+    self.chatting.sound = nil
+  end
+  if self.chatting.match.chatting.sound then
+    self.chatting.match.chatting.sound:stop()
+    self.chatting.match.chatting.sound = nil
+  end
+  self.chatting.match.chatting = nil
+  self.chatting = nil
+end
+
+function HandleCooldown(self, cooldown, dt, callback)
+  if self.cooldowns[cooldown] > 0 then
+    self.cooldowns[cooldown] = self.cooldowns[cooldown] - dt
+    if self.cooldowns[cooldown] <= 0 then
+      self.cooldowns[cooldown] = 0
+      if callback then
+        callback(self)
+      end
+    end
+  end
+end
+
+function DisableTasteShow(self)
+  self.taste.show = false
+end
+
+function BurnOut(self)
+  self.state.lit = false
+  if self.sounds.burn then
+    self.sounds.burn:stop()
+    self.sounds.burn = nil
+  end
+  self.state.burnt = true
+end
+
+function LightMatch(self, addSound)
+  self.state.lit = true
+  self.cooldowns.lit = 3
+
+  if addSound then
+    self.sounds.burn = Global.Sounds.Burn:clone()
+    self.sounds.burn:play()
+  end
+end
+
 
 function AnimateBounce(self, dt)
   if self.animation.stopBounce and self.animation.bounce == 0 then
@@ -213,30 +288,129 @@ function AnimateBounce(self, dt)
 
   self.animation.bounce = self.animation.bounce + dt * 10
   if self.animation.bounce > math.pi then
-    self.animation.bounce = 0
+    self.animation.bounce = self.animation.bounce - math.pi
+    if self.sounds.step then
+      --self.sounds.step:setPosition(self.x, self.y, 0)
+      self.sounds.step:play()
+    end
+  end
+end
+
+function AnimateBurning(self, dt)
+  if self.state.lit then
+    self.animation.burning = self.animation.burning + dt * 5
+    if self.animation.burning > math.pi then
+      self.animation.burning = self.animation.burning - math.pi
+    end
   end
 end
 
 
-function GoToward(self, otherMatch, dt)
+function GoTowardMatch(self, otherMatch, dt)
   local diffX = otherMatch.x - self.x
   local diffY = otherMatch.y - self.y
   local mag = getMagnitude(diffX, diffY)
 
   if mag > MATCH_DIST then
     local unitX, unitY = getUnitVector(diffX, diffY)
-    self.x = self.x + unitX * dt * MOVE_SPEED * 2 * math.random()
-    self.y = self.y + unitY * dt * MOVE_SPEED * 2 * math.random()
+    self.x = self.x + unitX * dt * MOVE_SPEED * 2 * love.math.random()
+    self.y = self.y + unitY * dt * MOVE_SPEED * 2 * love.math.random()
     return false
   end
 
   return true
 end
 
+function GoToward(self, point, dt)
+  local unitX, unitY = getUnitVector(point.x - self.x, point.y - self.y)
+  self.x = self.x + unitX * dt * MOVE_SPEED * 2
+  self.y = self.y + unitY * dt * MOVE_SPEED * 2
+end
+
+
+function ChatPair(self, match)
+  local chatTime = 2 --love.math.random() * 2 + 0.5
+  local sound = love.math.random(#Global.Sounds.Chat)
+
+  self.chatting = {
+    match = match,
+    sound = Global.Sounds.Chat[sound]:clone(),
+    chatTime = chatTime
+  }
+  if self.taste.dislike and love.math.random() > 0.6 then
+    self.chatting.dislike = RandomChoice(self.taste.dislikes)
+  else
+    self.chatting.like = RandomChoice(self.taste.likes)
+  end
+  match.chatting = {
+    match = self,
+    chatTime = chatTime
+  }
+  if match.taste.dislike and love.math.random() > 0.6 then
+    match.chatting.dislike = RandomChoice(match.taste.dislikes)
+  else
+    match.chatting.like = RandomChoice(match.taste.likes)
+  end
+end
+
+function RandomWalk(self)
+  local x = (love.math.random(Global.Width / 2) - Global.Width / 4) + self.x 
+  local y = (love.math.random(Global.Height / 3) - Global.Height / 6) + self.y
+  if x < 20 then x = 20
+  elseif x > Global.Width - 20 then x = Global.Width - 20
+  end
+  if y < MATCH_HEIGHT + 10 then y = MATCH_HEIGHT + 10
+  elseif y > Global.Height - 60 then y = Global.Height - 60
+  end
+
+  self.move.to = {
+    x = x, y = y
+  }
+
+  local diffX = x - self.x
+  local diffY = y - self.y
+  local mag = getMagnitude(diffX, diffY)
+  local unitX, unitY = getUnitVector(diffX, diffY)
+  self.move.by = {
+    x = unitX,
+    y = unitY
+  }
+end
+
+function PickNearbyMatch(self, allowPaired, allowChatting)
+  local choices = {}
+  for i, match in ipairs(Global.Matches) do
+    if match ~= self and 
+      (allowPaired or not match.paired) and 
+      (allowChatting or not match.chatting) and
+      not (match.state.lit or match.state.burnt) then
+      table.insert(choices, match)
+    end
+  end
+
+  if #choices then
+    return RandomChoice(choices)
+  end
+
+  return nil
+end
+
+function EqualizePair(self, otherMatch, dt)
+  local diffX = self.x - otherMatch.x
+  local diffY = self.y - otherMatch.y
+  local centerX = self.x - diffX / 2
+  if math.abs(diffY) > 2 then
+    GoToward(self, {
+      x = diffX < 0 and (centerX - MATCH_DIST) or (centerX + MATCH_DIST),
+      y = self.y - diffY / 2
+    }, dt)
+  end
+end
+
 
 function MatchPair(self, match)
   -- We're already matched haha
-  if self.paired then
+  if self.paired or self == match then
     return
   end
 
@@ -255,7 +429,7 @@ function MatchPair(self, match)
     matchPercent = (matchCount * 2) / (#self.taste.likes + #match.taste.likes)
   end
 
-  --local matchPercent = math.random()
+  --local matchPercent = love.math.random()
   if matchPercent > 0.75 then
     Global.Sounds.match100:play()
   elseif matchPercent > 0.5 then
@@ -266,16 +440,29 @@ function MatchPair(self, match)
     Global.Sounds.match25:play()
   end
 
-  self.chatting = nil
-  match.chatting = nil
+  self.animation.bounce = 0
+  match.animation.bounce = (math.pi / 2) * (1 - matchPercent)
+
+  if self.chatting then
+    EndChatting(self)
+  end
+  if match.chatting then
+    EndChatting(match)
+  end
 
   local loveLevel = {
     level = matchPercent,
     burnLevel = 10 * matchPercent
   }
 
+  self.move.to = nil
+  self.move.by = nil
+  match.move.to = nil
+  match.move.by = nil
+
   self.paired = {
     match = match,
+    original = true,
     loveLevel = loveLevel
   }
 
@@ -285,56 +472,18 @@ function MatchPair(self, match)
   }
 end
 
-function ChatPair(self, match)
-  local chatTime = 2 --math.random() * 2 + 0.5
-  self.chatting = {
-    match = match,
-    chatTime = chatTime
-  }
-  if self.taste.dislike and math.random() > 0.6 then
-    self.chatting.dislike = RandomChoice(self.taste.dislikes)
-  else
-    self.chatting.like = RandomChoice(self.taste.likes)
-  end
-  match.chatting = {
-    match = self,
-    chatTime = chatTime
-  }
-  if match.taste.dislike and math.random() > 0.6 then
-    match.chatting.dislike = RandomChoice(match.taste.dislikes)
-  else
-    match.chatting.like = RandomChoice(match.taste.likes)
-  end
-end
-
-
-function PickNearbyMatch(self, allowPaired, allowChatting)
-  local choices = {}
-  for i, match in ipairs(Global.Matches) do
-    if match ~= self and (allowPaired or not match.paired) and (allowChatting or not match.chatting) then
-      table.insert(choices, match)
-    end
-  end
-
-  if #choices then
-    return choices[math.ceil(math.random() * #choices)]
-  end
-
-  return nil
-end
-
 
 -- 
 -- Functions for managing all matches
 
 function AddRandomMatch()
-  local match = MatchNew(math.floor(math.random() * (Global.Width - 40) + 20), math.floor(math.random() * (Global.Height - MATCH_HEIGHT - 30) + MATCH_HEIGHT + 10))
+  local match = MatchNew(love.math.random(Global.Width - 40) + 20, love.math.random(Global.Height - MATCH_HEIGHT - 30 - 40) + MATCH_HEIGHT + 50)
   local level = Global.Levels[Global.Level]
-  local likeCount = math.floor(math.random() * (level.MaxLikes - level.MinLikes + 1)) + level.MinLikes
+  local likeCount = love.math.random(level.MinLikes, level.MaxLikes)
   match.taste.likes = RandomChoices(level.Likes, likeCount)
   
   if level.Dislikes then
-    local dislikeCount = math.floor(math.random() * (level.MaxDislikes - level.MinDislikes + 1)) + level.MinDislikes
+    local dislikeCount = love.math.random(level.MinDislikes, level.MaxDislikes)
     match.taste.dislikes = RandomChoices(level.Dislikes, dislikeCount)
   end
 
@@ -342,8 +491,9 @@ function AddRandomMatch()
 end
 
 
+-- Fix sorting so that the Original will display the heart correctly
 function ZSortMatch(matchA, matchB)
-  return matchA.y < matchB.y
+  return (matchA.y - ((matchA.paired and matchA.original) and 10 or 0)) < (matchB.y - ((matchB.paired and matchB.original) and 10 or 0))
 end
 
 function UpdateMatches(dt)

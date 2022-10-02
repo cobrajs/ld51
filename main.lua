@@ -3,6 +3,9 @@ require('utils')
 require('match')
 local Global = require('global')
 
+require('scenes.intro')
+require('scenes.game')
+
 function love.load()
   local width, height, flags = love.window.getMode()
   Global.Width = width
@@ -77,7 +80,7 @@ function love.keypressed(key)
 end
 
 function love.mousepressed(x, y, button)
-  local highlightMatch = NearestMatch(x, y, 100)
+  local highlightMatch = NearestMatch(x, y, 50)
   if highlightMatch then
     --highlightMatch.chatting.match.chatting = nil
     --highlightMatch.chatting = nil

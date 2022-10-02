@@ -43,14 +43,14 @@ function RandomChoices(choiceList, choiceCount)
     choiceListCopy[i] = choice
   end
   for i = 1, (#choiceListCopy - choiceCount) do
-    local removeIndex = math.ceil(math.random() * #choiceListCopy)
+    local removeIndex = love.math.random(#choiceListCopy)
     table.remove(choiceListCopy, removeIndex)
   end
   return choiceListCopy
 end
 
 function RandomChoice(choiceList)
-  return choiceList[math.ceil(math.random() * #choiceList)]
+  return choiceList[love.math.random(#choiceList)]
 end
 
 function getRoundedRect(x, y, width, height, corner, triangleW, triangleH)
@@ -95,5 +95,5 @@ end
 
 
 function decreaseTime(baseTime, dt)
-  return baseTime - dt
+  return baseTime - dt * 0.5
 end
