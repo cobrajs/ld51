@@ -7,7 +7,7 @@ local Global = {
   Colors = {
     --MatchStickFill = getColor(225, 218, 189),
     MatchStickFill = getColor(196, 167, 125),
-    MatchStickBurntFill = getColor(45, 35, 46),
+    MatchStickBurntFill = getColor(45, 35, 46, 0.7),
     MatchHeadFill = getColor(196, 32, 33),
     MatchHeadBurnFill = getColor(234, 196, 53),
     HeartFill = getColor(194, 140, 174),
@@ -53,54 +53,62 @@ local Global = {
   Scene = 'game',
   Level = 1,
   Countdown = 0,
-  HeartsLevel = 1.5,
+  HeartsLevel = 2,
   MouseHover = {
     Time = 0,
     Match = nil
   },
+  GameOver = false,
+  Win = false,
+  GameOverBounce = 0,
 
   -- Levels Info
   Levels = {
     {
       Likes = {1, 2},
       Dislikes = nil,
-      MaxLikes = 2,
+      MaxLikes = 1,
       MinLikes = 1,
       MaxDislikes = 0,
-      MinDislikes = 0
+      MinDislikes = 0,
+      MatchCount = 4,
     },
     {
-      Likes = {1, 2},
+      Likes = {1, 2, 3},
       Dislikes = nil,
       MaxLikes = 2,
       MinLikes = 1,
       MaxDislikes = 0,
-      MinDislikes = 0
+      MinDislikes = 0,
+      MatchCount = 6
     },
     {
-      Likes = {1, 2},
-      Dislikes = nil,
+      Likes = {1, 2, 3},
+      Dislikes = {1, 2},
       MaxLikes = 2,
-      MinLikes = 1,
-      MaxDislikes = 0,
-      MinDislikes = 0
+      MinLikes = 2,
+      MaxDislikes = 1,
+      MinDislikes = 0,
+      MatchCount = 8
     },
     {
-      Likes = {1, 2},
-      Dislikes = nil,
+      Likes = {1, 2, 3, 4},
+      Dislikes = {1, 2, 3, 4},
       MaxLikes = 2,
-      MinLikes = 1,
-      MaxDislikes = 0,
-      MinDislikes = 0
+      MinLikes = 2,
+      MaxDislikes = 1,
+      MinDislikes = 0,
+      MatchCount = 12
     },
     {
-      Likes = {1, 2},
-      Dislikes = nil,
+      Likes = {1, 2, 3, 4, 5},
+      Dislikes = {1, 2, 3, 4, 5},
       MaxLikes = 2,
-      MinLikes = 1,
-      MaxDislikes = 0,
-      MinDislikes = 0
-    },
+      MinLikes = 2,
+      MaxDislikes = 1,
+      MinDislikes = 1,
+      MatchCount = 14
+    }
   },
 
   Sizes = {

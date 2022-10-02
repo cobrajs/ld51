@@ -43,6 +43,8 @@ function MatchDraw(self)
   love.graphics.push()
   love.graphics.translate(self.x, self.y - offset)
 
+  love.graphics.setLineWidth(4)
+
   local outline = Global.Colors.Outline
   local shadowWeight = 0.05
 
@@ -68,11 +70,19 @@ function MatchDraw(self)
 
   love.graphics.setColor(Global.Colors.MatchStickFill)
   love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
+  if self.state.burnt then
+    love.graphics.setColor(Global.Colors.MatchStickBurntFill)
+    love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height / 3)
+  end
   love.graphics.setColor(outline)
   love.graphics.rectangle('line', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
 
   love.graphics.setColor(Global.Colors.MatchHeadFill)
   love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+  if self.state.burnt then
+    love.graphics.setColor(Global.Colors.MatchStickBurntFill)
+    love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+  end
   love.graphics.setColor(outline)
   love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
 
@@ -103,7 +113,7 @@ function MatchDraw(self)
   end
 
   -- Showing Tastes
-  if (self.taste.show or Global.HighlightMatch == self) and not (self.chatting and self.chatting.near) then
+  if (self.taste.show or Global.HighlightMatch == self or Global.MouseHover.Match == self) and not (self.chatting and self.chatting.near) then
     local tastesCount = #self.taste.likes + (self.taste.dislikes and #self.taste.dislikes or 0)
     local tastesWidth = tastesCount * Global.Sizes.Like
     local tasteX = -tastesWidth / 2
@@ -115,9 +125,11 @@ function MatchDraw(self)
       tasteX = tasteX + Global.Sizes.Like
     end
 
-    for i, dislike in ipairs(self.taste.dislikes) do
-      renderDislike(dislike, tasteX, tasteY + 2)
-      tasteX = tasteX + Global.Sizes.Like
+    if self.taste.dislikes then
+      for i, dislike in ipairs(self.taste.dislikes) do
+        renderDislike(dislike, tasteX, tasteY + 2)
+        tasteX = tasteX + Global.Sizes.Like
+      end
     end
   end
 
@@ -152,7 +164,8 @@ function MatchUpdate(self, dt)
   if self.move.to then
     self.animation.stopBounce = false
     local moveSpeed = MOVE_SPEED
-    if self.state.lit then moveSpeed = moveSpeed * 1.3
+    if self.state.leaving then moveSpeed = moveSpeed * 3
+    elseif self.state.lit then moveSpeed = moveSpeed * 1.3
     elseif self.state.burnt then moveSpeed = moveSpeed * 0.5
     end
 
@@ -162,6 +175,10 @@ function MatchUpdate(self, dt)
       self.y = self.move.to.y
       self.move.to = nil
       self.cooldowns.walk = love.math.random(10) / 8
+      if self.state.leaving then
+        RemoveMatch(self)
+        return
+      end
     end
   elseif self.paired then
     self.animation.stopBounce = false
@@ -230,6 +247,10 @@ function MatchUpdate(self, dt)
 end
 
 function EndChatting(self)
+  if not self.chatting then
+    return
+  end
+
   if self.chatting.sound then
     --self.chatting.sound:setPosition(self.x, self.y, 0)
     self.chatting.sound:stop()
@@ -375,7 +396,7 @@ function PickNearbyMatch(self, allowPaired, allowChatting)
     if match ~= self and 
       (allowPaired or not match.paired) and 
       (allowChatting or not match.chatting) and
-      not (match.state.lit or match.state.burnt) then
+      not (match.state.lit or match.state.burnt or match.state.leaving or match.state.arriving) then
       table.insert(choices, match)
     end
   end
@@ -402,23 +423,31 @@ end
 
 function MatchPair(self, match)
   -- We're already matched haha
-  if self.paired or self == match then
+  if self.paired or self == match or
+    self.state.leaving or match.state.leaving or
+    self.state.arriving or match.state.arriving then
     return
   end
 
   local matchPercent = 0.5
-  if not self.taste.dislikes and not match.taste.dislikes and #self.taste.likes == #match.taste.likes and self.taste.likes[1] == match.taste.likes[1] then
-    matchPercent = 1
-  elseif #self.taste.likes ~= #match.taste.likes then
-    local matchCount = 0
-    for i, like in ipairs(self.taste.likes) do
-      for j, matchLike in ipairs(match.taste.likes) do
-        if like == matchLike then
-          matchCount = matchCount + 1
+  if not self.taste.dislikes and not match.taste.dislikes then
+    if #self.taste.likes == #match.taste.likes then
+      if self.taste.likes[1] == match.taste.likes[1] then
+        matchPercent = 1
+      else
+        matchPercent = 0.25
+      end
+    elseif #self.taste.likes ~= #match.taste.likes then
+      local matchCount = 0
+      for i, like in ipairs(self.taste.likes) do
+        for j, matchLike in ipairs(match.taste.likes) do
+          if like == matchLike then
+            matchCount = matchCount + 1
+          end
         end
       end
+      matchPercent = (matchCount * 2) / (#self.taste.likes + #match.taste.likes)
     end
-    matchPercent = (matchCount * 2) / (#self.taste.likes + #match.taste.likes)
   end
 
   --local matchPercent = love.math.random()
@@ -472,6 +501,23 @@ function MatchPair(self, match)
 end
 
 
+function MatchLeave(self)
+  self.state.leaving = true
+  local diffX = self.x - Global.Width / 2
+  local diffY = self.y - Global.Height / 2
+  self.move.to = {
+    x = -30, y = self.y
+  }
+  if diffX > 0 then
+    self.move.x = Global.Width + 30
+  end
+
+  EndChatting(self)
+
+  self.paired = nil
+end
+
+
 -- 
 -- Functions for managing all matches
 
@@ -489,10 +535,18 @@ function AddRandomMatch()
   table.insert(Global.Matches, match)
 end
 
+function RemoveMatch(removeMatch)
+  for i, match in ipairs(Global.Matches) do
+    if removeMatch == match then
+      table.remove(Global.Matches, i)
+      return
+    end
+  end
+end
 
 -- Fix sorting so that the Original will display the heart correctly
 function ZSortMatch(matchA, matchB)
-  return (matchA.y - ((matchA.paired and matchA.paired.original) and 20 or 0)) < (matchB.y - ((matchB.paired and matchB.paired.original) and 20 or 0))
+  return (matchA.y + ((matchA.paired and matchA.paired.original) and 20 or 0)) < (matchB.y + ((matchB.paired and matchB.paired.original) and 20 or 0))
 end
 
 function UpdateMatches(dt)
@@ -518,11 +572,10 @@ end
 function NearestMatch(x, y, radius)
   local nearest = nil
   local nearestDist = 1000
-  local point = {x = x, y = y}
+  local point = {x = x, y = y + Global.Sizes.Match.Height / 2}
 
   for i, match in ipairs(Global.Matches) do
-    local centerMatch = {x = match.x, y = match.y - Global.Sizes.Match.Height / 2}
-    local dist = getDist(centerMatch, point)
+    local dist = getDist(match, point)
     if dist < nearestDist then
       nearest = match
       nearestDist = dist

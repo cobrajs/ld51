@@ -148,6 +148,30 @@ function renderHalfHeart(x, y, size)
   love.graphics.pop()
 end
 
+function renderLevel(x, y, size, level)
+  love.graphics.push()
+  love.graphics.translate(x, y)
+
+  local spacing = size / 4
+  local width = spacing * level * 2
+  local startX = -width
+  for i = 1, level do
+    renderLevelLine(startX, size, 0, spacing)
+    startX = startX + spacing * 2
+  end
+
+  love.graphics.pop()
+end
+
+function renderLevelLine(x, y1, y2, width)
+  local polygon = {x, y1,  x, y2,  x + width, y2,  x + width, y1}
+  love.graphics.setLineWidth(3)
+  love.graphics.setColor(Global.Colors.White)
+  love.graphics.polygon('fill', polygon)
+  love.graphics.setColor(Global.Colors.Outline)
+  love.graphics.polygon('line', polygon)
+end
+
 function RandomChoices(choiceList, choiceCount)
   local choiceListCopy = {}
   for i, choice in ipairs(choiceList) do

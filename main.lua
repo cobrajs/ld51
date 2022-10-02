@@ -62,6 +62,7 @@ function love.mousepressed(x, y, button)
   if Global.Scene == 'game' then
     GameMousePressed(x, y, button)
   elseif Global.Scene == 'intro' then
+    IntroMousePressed(x, y, button)
   end
 end
 
