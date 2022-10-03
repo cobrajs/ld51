@@ -131,7 +131,6 @@ end
 
 
 function CountdownEnded()
-  print('Oh no')
   local heartsChange = 0
   local pairCount = 0
   local burntCount = 0
@@ -149,9 +148,6 @@ function CountdownEnded()
       leavingMatches = leavingMatches + 1
     end
   end
-  print('Pair count: ' .. pairCount)
-  print('Burnt count: ' .. burntCount)
-  print('Leaving: ' .. leavingMatches)
 
   if pairCount == 0 then
     heartsChange = -0.5
@@ -168,12 +164,13 @@ function CountdownEnded()
     GameOver(false)
     return
   end
-  print('Hearts to subtract: ' .. heartsChange)
 
   Global.Level = Global.Level + 1
   if Global.Level > #Global.Levels then
     GameOver(true)
+    return
   end
+
   local matchDisparity = Global.Levels[Global.Level].MatchCount - (#Global.Matches - leavingMatches)
   if matchDisparity > 0  then
     for i = 1, matchDisparity do
