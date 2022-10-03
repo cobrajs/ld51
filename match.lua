@@ -435,10 +435,22 @@ function MatchPair(self, match)
   local matchPercent = 0.5
   if not self.taste.dislikes and not match.taste.dislikes then
     if #self.taste.likes == #match.taste.likes then
-      if self.taste.likes[1] == match.taste.likes[1] then
-        matchPercent = 1
-      else
-        matchPercent = 0.25
+      if #self.taste.likes == 1 then
+        if self.taste.likes[1] == match.taste.likes[1] then
+          matchPercent = 1
+        else
+          matchPercent = 0.25
+        end
+      elseif #self.taste.likes > 1 then
+        local matchCount = 0
+        for i, like in ipairs(self.taste.likes) do
+          for j, matchLike in ipairs(match.taste.likes) do
+            if like == matchLike then
+              matchCount = matchCount + 1
+            end
+          end
+        end
+        matchPercent = math.min((matchCount * 2) / (#self.taste.likes + #match.taste.likes), 1)
       end
     elseif #self.taste.likes ~= #match.taste.likes then
       local matchCount = 0
