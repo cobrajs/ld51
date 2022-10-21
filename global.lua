@@ -55,7 +55,7 @@ local Global = {
   Matches = {},
 
   -- Game State Details
-  Scene = 'intro',
+  Scene = 'game',
   Level = 1,
   Countdown = 0,
   HeartsLevel = 2,

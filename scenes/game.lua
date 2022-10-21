@@ -138,13 +138,13 @@ function CountdownEnded()
   for i, match in ipairs(Global.Matches) do
     if match.state.lit or match.state.burnt then
       burntCount = burntCount + 1
-      MatchLeave(match)
+      match:leave()
       leavingMatches = leavingMatches + 1
     end
 
     if match.paired then
       pairCount = pairCount + 0.5
-      MatchLeave(match)
+      match:leave()
       leavingMatches = leavingMatches + 1
     end
   end

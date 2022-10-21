@@ -1,44 +1,46 @@
+local class = require 'libs.middleclass'
+
+local Match = class('Match')
+
 local MATCH_DIST = 26
 
-function MatchNew(x, y)
-  local match = {
-    x = x, y = y,
-    animation = {
-      bounce = love.math.random() * math.pi,
-      stopBounce = false,
-      burning = 0
-    },
-    move = {
-      to = nil
-    },
-    state = {
-      lit = false,
-      burnt = false,
-      leaving = false,
-      arriving = false
-    },
-    taste = {
-      show = true
-    },
-    paired = nil,
-    chatting = nil,
-    cooldowns = {
-      chat = 0,
-      walk = 0,
-      showTastes = 2,
-      lit = 0
-    },
-    sounds = {
-      step = Global.Sounds.Step[love.math.random(#Global.Sounds.Step)]:clone()
-    }
+function Match:initialize(x, y)
+  self.x = x
+  self.y = y
+
+  self.animation = {
+    bounce = love.math.random() * math.pi,
+    stopBounce = false,
+    burning = 0
+  }
+  self.move = {
+    to = nil
+  }
+  self.state = {
+    lit = false,
+    burnt = false,
+    leaving = false,
+    arriving = false
+  }
+  self.taste = {
+    show = true
+  }
+  self.paired = nil
+  self.chatting = nil
+  self.cooldowns = {
+    chat = 0,
+    walk = 0,
+    showTastes = 2,
+    lit = 0
+  }
+  self.sounds = {
+    step = Global.Sounds.Step[love.math.random(#Global.Sounds.Step)]:clone()
   }
 
-  match.sounds.step:setRelative(true)
-
-  return match
+  self.sounds.step:setRelative(true)
 end
 
-function MatchDraw(self)
+function Match:draw()
   local offset = math.abs(math.sin(self.animation.bounce)) * 10
   love.graphics.push()
   love.graphics.translate(self.x, self.y - offset)
@@ -135,18 +137,6 @@ function MatchDraw(self)
 
   love.graphics.pop()
 
-  --[[
-  love.graphics.setColor(Global.Colors.Outline)
-  love.graphics.circle('fill', self.x, self.y, 4)
-  --]]
-
-  --[[
-  if self.move.to then
-    love.graphics.setColor(Global.Colors.Outline)
-    love.graphics.circle('fill', self.move.to.x, self.move.to.y, 4)
-  end
-  --]]
-
   if self.paired and self.paired.original and self.paired.near then
     local midX = self.x + (self.paired.match.x - self.x) / 2
     local midY = self.y + (self.paired.match.y - self.y) / 2 - Global.Sizes.Match.Stick.Height / 2
@@ -158,9 +148,16 @@ end
 
 local MOVE_SPEED = 70
 
-function MatchUpdate(self, dt)
-  AnimateBounce(self, dt)
-  AnimateBurning(self, dt)
+function Match:update(dt)
+  self:animateBounce(dt)
+  self:animateBurning(dt)
+
+  for i, otherMatch in ipairs(Global.Matches) do
+    if getDist(self, otherMatch) < 10 then
+
+    end
+  end
+
   if self.move.to then
     self.animation.stopBounce = false
     local moveSpeed = MOVE_SPEED
@@ -169,7 +166,7 @@ function MatchUpdate(self, dt)
     elseif self.state.burnt then moveSpeed = moveSpeed * 0.5
     end
 
-    GoToward(self, self.move.to, dt, moveSpeed)
+    self:goToward(self.move.to, dt, moveSpeed)
     if math.abs(self.x - self.move.to.x) <= 3 and math.abs(self.y - self.move.to.y) <= 3 then
       self.x = self.move.to.x
       self.y = self.move.to.y
@@ -186,7 +183,7 @@ function MatchUpdate(self, dt)
   elseif self.paired then
     self.animation.stopBounce = false
     if not self.paired.near then
-      if GoTowardMatch(self, self.paired.match, dt) then
+      if self:goTowardMatch(self.paired.match, dt) then
         self.paired.near = true
       end
     else
@@ -195,7 +192,7 @@ function MatchUpdate(self, dt)
   elseif self.chatting then
     self.animation.stopBounce = false
     if not self.chatting.near then
-      if GoTowardMatch(self, self.chatting.match, dt) then
+      if self:goTowardMatch(self.chatting.match, dt) then
         self.chatting.near = true
         if self.chatting.sound then
           --self.chatting.sound:setPosition(self.x, self.y, 0)
@@ -209,7 +206,7 @@ function MatchUpdate(self, dt)
       if self.chatting.chatTime <= 0 then
         self.chatting.match.cooldowns.chat = 2
         self.cooldowns.chat = 2
-        EndChatting(self)
+        self:endChatting()
       end
     end
   elseif self.state.lit then
@@ -234,10 +231,10 @@ function MatchUpdate(self, dt)
     if self.paired.loveLevel.burnLevel <= 0 then
       local otherMatch = self.paired.match
       self.paired = nil
-      LightMatch(self, true)
+      self:light(true)
 
       otherMatch.paired = nil
-      LightMatch(otherMatch)
+      otherMatch:light()
     end
   end
 
@@ -249,7 +246,7 @@ function MatchUpdate(self, dt)
   end
 end
 
-function EndChatting(self)
+function Match:endChatting()
   if not self.chatting then
     return
   end
@@ -292,7 +289,7 @@ function BurnOut(self)
   self.state.burnt = true
 end
 
-function LightMatch(self, addSound)
+function Match:light(addSound)
   self.state.lit = true
   self.cooldowns.lit = 3
 
@@ -303,7 +300,7 @@ function LightMatch(self, addSound)
 end
 
 
-function AnimateBounce(self, dt)
+function Match:animateBounce(dt)
   if self.animation.stopBounce and self.animation.bounce == 0 then
     return
   end
@@ -318,7 +315,7 @@ function AnimateBounce(self, dt)
   end
 end
 
-function AnimateBurning(self, dt)
+function Match:animateBurning(dt)
   if self.state.lit then
     self.animation.burning = self.animation.burning + dt * 5
     if self.animation.burning > math.pi then
@@ -328,7 +325,7 @@ function AnimateBurning(self, dt)
 end
 
 
-function GoTowardMatch(self, otherMatch, dt)
+function Match:goTowardMatch(otherMatch, dt)
   local diffX = otherMatch.x - self.x
   local diffY = otherMatch.y - self.y
   local mag = getMagnitude(diffX, diffY)
@@ -343,7 +340,7 @@ function GoTowardMatch(self, otherMatch, dt)
   return true
 end
 
-function GoToward(self, point, dt, moveSpeed)
+function Match:goToward(point, dt, moveSpeed)
   if moveSpeed == nil then
     moveSpeed = MOVE_SPEED * 2
   end
@@ -416,7 +413,7 @@ function EqualizePair(self, otherMatch, dt)
   local diffY = self.y - otherMatch.y
   local centerX = self.x - diffX / 2
   if math.abs(diffY) > 2 then
-    GoToward(self, {
+    self:goToward({
       x = diffX < 0 and (centerX - MATCH_DIST) or (centerX + MATCH_DIST),
       y = self.y - diffY / 2
     }, dt)
@@ -480,10 +477,10 @@ function MatchPair(self, match)
   match.animation.bounce = (math.pi / 2) * (1 - matchPercent)
 
   if self.chatting then
-    EndChatting(self)
+    self:endChatting()
   end
   if match.chatting then
-    EndChatting(match)
+    self:endChatting()
   end
 
   print('Match: ' .. matchPercent)
@@ -516,7 +513,7 @@ function MatchPair(self, match)
 end
 
 
-function MatchLeave(self)
+function Match:leave()
   self.state.leaving = true
   local diffX = self.x - Global.Width / 2
   local diffY = self.y - Global.Height / 2
@@ -527,97 +524,9 @@ function MatchLeave(self)
     self.move.x = Global.Width + 30
   end
 
-  EndChatting(self)
+  self:endChatting()
 
   self.paired = nil
 end
 
-
--- 
--- Functions for managing all matches
-
-function AddRandomMatch()
-  local side = love.math.random(2)
-  local startX = 0
-  local y = love.math.random(Global.Height - Global.Sizes.Match.Height - 100) + Global.Sizes.Match.Height + 50
-  local targetX = 0
-  if side == 1 then -- Left
-    startX = -40
-    targetX = love.math.random(Global.Width / 2) + 20
-  elseif side == 2 then -- Right
-    startX = Global.Width + 40
-    targetX = love.math.random(Global.Width / 2 - 20) + Global.Width / 2
-  end
-  local match = MatchNew(startX, y)
-  local level = Global.Levels[Global.Level]
-  local likeCount = love.math.random(level.MinLikes, level.MaxLikes)
-  match.taste.likes = RandomChoices(level.Likes, likeCount)
-  
-  if level.Dislikes then
-    local dislikeCount = love.math.random(level.MinDislikes, level.MaxDislikes)
-    match.taste.dislikes = RandomChoices(level.Dislikes, dislikeCount)
-  end
-
-  match.move.to = {
-    x = targetX,
-    y = y
-  }
-
-  match.state.arriving = true
-
-  table.insert(Global.Matches, match)
-end
-
-function RemoveMatch(removeMatch)
-  for i, match in ipairs(Global.Matches) do
-    if removeMatch == match then
-      table.remove(Global.Matches, i)
-      return
-    end
-  end
-end
-
--- Fix sorting so that the Original will display the heart correctly
-function ZSortMatch(matchA, matchB)
-  return (matchA.y + ((matchA.paired and matchA.paired.original) and 20 or 0)) < (matchB.y + ((matchB.paired and matchB.paired.original) and 20 or 0))
-end
-
-function UpdateMatches(dt)
-  for i, match in ipairs(Global.Matches) do
-    MatchUpdate(match, dt)
-  end
-
-  table.sort(Global.Matches, ZSortMatch)
-end
-
-function DrawMatches()
-  for i, match in ipairs(Global.Matches) do
-    MatchDraw(match)
-  end
-end
-
-function ClearMatches()
-  for i = 1, #Global.Matches do
-    table.remove(Global.Matches)
-  end
-end
-
-function NearestMatch(x, y, radius)
-  local nearest = nil
-  local nearestDist = 1000
-  local point = {x = x, y = y + Global.Sizes.Match.Height / 2}
-
-  for i, match in ipairs(Global.Matches) do
-    local dist = getDist(match, point)
-    if dist < nearestDist then
-      nearest = match
-      nearestDist = dist
-    end
-  end
-
-  if nearestDist < radius then
-    return nearest
-  end
-  
-  return nil
-end
+return Match

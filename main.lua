@@ -2,7 +2,8 @@ Global = require('global')
 
 require('utils')
 
-require('match')
+local Match = require('match')
+require('match_handler')
 
 require('scenes.intro')
 require('scenes.game')
