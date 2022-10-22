@@ -1,6 +1,8 @@
 local class = require 'libs.middleclass'
+local Stateful = require 'libs.stateful'
 
 local Match = class('Match')
+Match:include(Stateful)
 
 local MATCH_DIST = 26
 
@@ -70,35 +72,10 @@ function Match:draw()
   love.graphics.setColor(0, 0, 0, shadowWeight * 1.5)
   love.graphics.ellipse('fill', 0, offset, Global.Sizes.Match.Width * 1.2 - offset / 4, Global.Sizes.Match.Width * 0.8 - offset / 4)
 
-  love.graphics.setColor(Global.Colors.MatchStickFill)
-  love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
-  if self.state.burnt then
-    love.graphics.setColor(Global.Colors.MatchStickBurntFill)
-    love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height / 3)
-  end
-  love.graphics.setColor(outline)
-  love.graphics.rectangle('line', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
-
-  love.graphics.setColor(Global.Colors.MatchHeadFill)
-  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
-  if self.state.burnt then
-    love.graphics.setColor(Global.Colors.MatchStickBurntFill)
-    love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
-  end
-  love.graphics.setColor(outline)
-  love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+  self:bodyDraw(outline)
+  self:headDraw(outline)
 
   if self.paired then
-  end
-
-  if self.state.lit then
-    local burnOffset = math.abs(math.cos(self.animation.burning)) * 10
-    love.graphics.setColor(Global.Colors.MatchHeadBurnFill)
-    love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height * 1.2 - burnOffset, Global.Sizes.Match.Head.Width * 1.5, Global.Sizes.Match.Head.Height * 2 + burnOffset)
-    love.graphics.setColor(Global.Colors.MatchHeadFill)
-    love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height * 1 - burnOffset, Global.Sizes.Match.Head.Width * 1.1, Global.Sizes.Match.Head.Height + burnOffset)
-    love.graphics.setColor(outline)
-    love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height * 1.2 - burnOffset, Global.Sizes.Match.Head.Width * 1.5, Global.Sizes.Match.Head.Height * 2 + burnOffset)
   end
 
   love.graphics.setColor(Global.Colors.White)
@@ -143,6 +120,81 @@ function Match:draw()
 
     renderHeart(midX, midY, 40, self.paired.loveLevel.burnLevel / 10, 'horizontal')
   end
+end
+
+function Match:bodyDraw(outline)
+  love.graphics.setColor(Global.Colors.MatchStickFill)
+  love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
+
+  love.graphics.setColor(outline)
+  love.graphics.rectangle('line', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
+end
+
+function Match:headDraw(outline)
+  love.graphics.setColor(Global.Colors.MatchHeadFill)
+  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+
+  love.graphics.setColor(outline)
+  love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+end
+
+local Lit = Match:addState('Lit')
+
+function Lit:headDraw(outline)
+  local burnOffset = math.abs(math.cos(self.animation.burning)) * 10
+  love.graphics.setColor(Global.Colors.MatchHeadBurnFill)
+  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height * 1.2 - burnOffset, Global.Sizes.Match.Head.Width * 1.5, Global.Sizes.Match.Head.Height * 2 + burnOffset)
+  love.graphics.setColor(Global.Colors.MatchHeadFill)
+  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height * 1 - burnOffset, Global.Sizes.Match.Head.Width * 1.1, Global.Sizes.Match.Head.Height + burnOffset)
+  love.graphics.setColor(outline)
+  love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height * 1.2 - burnOffset, Global.Sizes.Match.Head.Width * 1.5, Global.Sizes.Match.Head.Height * 2 + burnOffset)
+end
+
+function Lit:enteredState()
+  self.state.lit = true
+  self.cooldowns.lit = 3
+
+  if addSound then
+    self.sounds.burn = Global.Sounds.Burn:clone()
+    self.sounds.burn:play()
+  end
+end
+
+function Lit:exitedState()
+  self.state.lit = false
+end
+
+
+local Burnt = Match:addState('Burnt')
+
+function Burnt:enteredState()
+  self.state.burnt = true
+  if self.sounds.burn then
+    self.sounds.burn:stop()
+    self.sounds.burn = nil
+  end
+end
+
+function Burnt:bodyDraw(outline)
+  love.graphics.setColor(Global.Colors.MatchStickFill)
+  love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
+
+  love.graphics.setColor(Global.Colors.MatchStickBurntFill)
+  love.graphics.rectangle('fill', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height / 3)
+
+  love.graphics.setColor(outline)
+  love.graphics.rectangle('line', -Global.Sizes.Match.Stick.Width / 2, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Stick.Width, Global.Sizes.Match.Stick.Height)
+end
+
+function Burnt:headDraw(outline)
+  love.graphics.setColor(Global.Colors.MatchHeadFill)
+  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+
+  love.graphics.setColor(Global.Colors.MatchStickBurntFill)
+  love.graphics.ellipse('fill', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
+
+  love.graphics.setColor(outline)
+  love.graphics.ellipse('line', 0, -Global.Sizes.Match.Stick.Height, Global.Sizes.Match.Head.Width, Global.Sizes.Match.Head.Height)
 end
 
 
@@ -281,22 +333,11 @@ function DisableTasteShow(self)
 end
 
 function BurnOut(self)
-  self.state.lit = false
-  if self.sounds.burn then
-    self.sounds.burn:stop()
-    self.sounds.burn = nil
-  end
-  self.state.burnt = true
+  self:gotoState('Burnt')
 end
 
 function Match:light(addSound)
-  self.state.lit = true
-  self.cooldowns.lit = 3
-
-  if addSound then
-    self.sounds.burn = Global.Sounds.Burn:clone()
-    self.sounds.burn:play()
-  end
+  self:gotoState('Lit')
 end
 
 
